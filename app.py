@@ -245,7 +245,6 @@ def exportar_excel(visita_id):
     apply(ws[f'A{sig_row}'], 'Firma de quien realizó la inspección' + ' '*35 + 'Firma de quien recibió la inspección', sz=11, h='center')
     ws.merge_cells(f'A{sig_row}:H{sig_row}')
 
-    ws['!ref'] = None
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
