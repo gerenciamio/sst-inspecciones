@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Inspección SST — FT-SST-020</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;color:#1a1a18;min-height:100vh}
+.app{max-width:480px;margin:0 auto;padding:0 0 2rem}
+.topbar{background:#1F4E79;padding:14px 16px;color:#fff;position:sticky;top:0;z-index:10}
+.topbar h1{font-size:17px;font-weight:600}
+.topbar p{font-size:12px;opacity:.75;margin-top:2px}
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(255,255,255,.2);color:#fff;margin-top:3px}
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e8e6e0;position:sticky;top:57px;z-index:9}
+.tab{flex:1;padding:12px 4px;font-size:13px;border:none;background:transparent;cursor:pointer;color:#888;border-bottom:2px solid transparent}
+.tab.active{color:#1F4E79;font-weight:600;border-bottom-color:#1F4E79}
+.cnt{display:inline-block;font-size:10px;padding:1px 5px;border-radius:10px;margin-left:4px;background:#faeeda;color:#854f0b}
+.cnt.done{background:#eaf3de;color:#3b6d11}
+.content{padding:16px}
+.section{margin-bottom:14px}
+label{font-size:12px;color:#666;display:block;margin-bottom:5px;font-weight:500}
+input,select,textarea{width:100%;padding:10px 12px;font-size:15px;border:1px solid #ddd;border-radius:10px;background:#fff;color:#1a1a18;-webkit-appearance:none}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#1F4E79}
+textarea{resize:none;font-family:inherit}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.divider{height:1px;background:#e8e6e0;margin:14px 0}
+.photo-col label{font-size:11px;font-weight:700;color:#1F4E79;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.photo-box{border:1.5px dashed #ccc;border-radius:12px;background:#fafafa;position:relative;overflow:hidden;min-height:95px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;padding:10px;text-align:center;cursor:pointer}
+.photo-box:active{background:#f0f0ee}
+.photo-box .ico{font-size:26px}
+.photo-box span{font-size:12px;color:#999}
+.photo-box img{width:100%;height:110px;object-fit:cover;border-radius:8px;display:none}
+.photo-box input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.btn{width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;border:none}
+.btn-dark{background:#1F4E79;color:#fff}
+.btn-outline{background:#fff;color:#1F4E79;border:1.5px solid #1F4E79;margin-top:8px}
+.btn:disabled{opacity:.35}
+.msg{font-size:13px;text-align:center;margin-top:10px;min-height:18px;font-weight:500}
+.msg.ok{color:#3b6d11}
+.msg.err{color:#a32d2d}
+.card{background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid #e8e6e0}
+.card .num{font-size:11px;font-weight:600;color:#aaa;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.card .title{font-size:15px;font-weight:600;color:#1a1a18;margin-bottom:2px}
+.card .sub{font-size:12px;color:#888}
+.sbadge{display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;margin-top:7px;font-weight:500}
+.s-p{background:#faeeda;color:#854f0b}
+.s-c{background:#eaf3de;color:#3b6d11}
+.foto-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.foto-mini{border-radius:8px;overflow:hidden;height:65px;background:#f5f5f3;display:flex;align-items:center;justify-content:center;font-size:11px;color:#aaa;border:1px solid #e8e6e0}
+.foto-mini img{width:100%;height:100%;object-fit:cover}
+.empty{text-align:center;padding:40px 16px;color:#aaa}
+.empty .eico{font-size:40px;margin-bottom:10px}
+.stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.stat{background:#fff;border-radius:12px;padding:14px;text-align:center;border:1px solid #e8e6e0}
+.stat-n{font-size:26px;font-weight:700;color:#1F4E79}
+.stat-l{font-size:12px;color:#888;margin-top:2px}
+.export-card{background:#fff;border-radius:14px;padding:16px;border:1px solid #e8e6e0;margin-bottom:12px}
+.export-card h3{font-size:15px;font-weight:600;margin-bottom:4px}
+.export-card p{font-size:13px;color:#777;margin-bottom:14px;line-height:1.5}
+.tip{font-size:12px;color:#aaa;line-height:1.6}
+.loader{display:none;text-align:center;padding:14px;font-size:14px;color:#555}
+.loader.show{display:block}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid #ddd;border-top-color:#1F4E79;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.visit-saved{background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:12px 14px;font-size:13px;color:#1565c0;margin-bottom:14px;display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <h1>🛡 Inspección SST</h1>
+    <p id="visit-summary">Nueva visita</p>
+    <span class="badge">FT-SST-020</span>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('registro')">📋 Registro</button>
+    <button class="tab" onclick="showTab('hallazgos')">📂 Hallazgos <span class="cnt" id="cnt">0</span></button>
+    <button class="tab" onclick="showTab('exportar')">📥 Exportar</button>
+  </div>
+
+  <!-- TAB REGISTRO -->
+  <div id="tab-registro" class="content">
+    <div id="visit-saved-banner" class="visit-saved"></div>
+    <div class="section">
+      <label>Cliente / Empresa</label>
+      <input type="text" id="inp-cliente" placeholder="Nombre del cliente" oninput="updateSummary()">
+    </div>
+    <div class="grid2">
+      <div class="section">
+        <label>Fecha de inspección</label>
+        <input type="date" id="inp-fecha" oninput="updateSummary()">
+      </div>
+      <div class="section">
+        <label>Asesora</label>
+        <input type="text" id="inp-asesora" placeholder="Nombre asesora">
+      </div>
+    </div>
+    <div class="section">
+      <label>Participantes</label>
+      <input type="text" id="inp-participantes" placeholder="Nombres de participantes">
+    </div>
+    <div class="divider"></div>
+    <div class="section">
+      <label>Lugar / Área</label>
+      <input type="text" id="inp-lugar" placeholder="Ej: Bodega, cocina, oficinas...">
+    </div>
+    <div class="section">
+      <label>Situación encontrada</label>
+      <textarea id="inp-situacion" rows="3" placeholder="Describe el riesgo o hallazgo..."></textarea>
+    </div>
+    <div class="section">
+      <label>Recomendación</label>
+      <textarea id="inp-rec" rows="2" placeholder="Acción correctiva sugerida..."></textarea>
+    </div>
+    <div class="grid2">
+      <div class="photo-col">
+        <label>Foto — ANTES</label>
+        <div class="photo-box" id="box-antes">
+          <div class="ico">📷</div><span>Tomar o subir</span>
+          <img id="img-antes" alt="Antes">
+          <input type="file" accept="image/*" capture="environment" onchange="previewFoto(this,'antes')">
+        </div>
+      </div>
+      <div class="photo-col">
+        <label>Foto — DESPUÉS <span style="font-weight:400;font-size:10px">(si ya está)</span></label>
+        <div class="photo-box" id="box-despues">
+          <div class="ico">📷</div><span>Opcional</span>
+          <img id="img-despues" alt="Después">
+          <input type="file" accept="image/*" capture="environment" onchange="previewFoto(this,'despues')">
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-dark" onclick="guardar()">+ Guardar hallazgo</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <!-- TAB HALLAZGOS -->
+  <div id="tab-hallazgos" class="content" style="display:none">
+    <div id="list"></div>
+  </div>
+
+  <!-- TAB EXPORTAR -->
+  <div id="tab-exportar" class="content" style="display:none">
+    <div class="stat-row">
+      <div class="stat"><div class="stat-n" id="st-total">0</div><div class="stat-l">Hallazgos</div></div>
+      <div class="stat"><div class="stat-n" id="st-cerr">0</div><div class="stat-l">Con foto después</div></div>
+    </div>
+    <div class="export-card">
+      <h3>📄 Informe FT-SST-020</h3>
+      <p>Descarga el Excel con todas las fotos incrustadas. Los hallazgos pendientes quedan marcados para seguimiento.</p>
+      <button class="btn btn-dark" id="btn-exp" onclick="exportar()" disabled>⬇ Descargar informe .xlsx</button>
+    </div>
+    <div class="loader" id="loader"><span class="spinner"></span>Generando informe...</div>
+    <p class="tip">💡 <strong>Para que el cliente suba las fotos del después:</strong> ve al panel de administración en <strong>/admin</strong>, busca esta visita y envíale el link al cliente por WhatsApp.</p>
+  </div>
+</div>
+
+<script>
+const S = {hallazgos:[], visitaId: null};
+let fBefore=null, fAfter=null;
+
+function showTab(t){
+  ['registro','hallazgos','exportar'].forEach(x=>{
+    document.getElementById('tab-'+x).style.display=x===t?'block':'none';
+  });
+  document.querySelectorAll('.tab').forEach((el,i)=>{
+    el.classList.toggle('active',['registro','hallazgos','exportar'][i]===t);
+  });
+  if(t==='hallazgos') renderList();
+  if(t==='exportar') updateStats();
+}
+
+function updateSummary(){
+  const c=document.getElementById('inp-cliente').value;
+  const f=document.getElementById('inp-fecha').value;
+  document.getElementById('visit-summary').textContent=
+    c||f?(c||'Cliente')+(f?' — '+fmtFecha(f):''):'Nueva visita';
+}
+
+function fmtFecha(d){
+  if(!d) return '';
+  const [y,m,day]=d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function previewFoto(input,side){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    if(side==='antes'){
+      fBefore=e.target.result;
+      document.getElementById('img-antes').src=e.target.result;
+      document.getElementById('img-antes').style.display='block';
+      document.getElementById('box-antes').querySelector('.ico').style.display='none';
+      document.getElementById('box-antes').querySelector('span').style.display='none';
+    } else {
+      fAfter=e.target.result;
+      document.getElementById('img-despues').src=e.target.result;
+      document.getElementById('img-despues').style.display='block';
+      document.getElementById('box-despues').querySelector('.ico').style.display='none';
+      document.getElementById('box-despues').querySelector('span').style.display='none';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function showMsg(txt,ok){
+  const m=document.getElementById('msg');
+  m.className='msg '+(ok?'ok':'err');
+  m.textContent=txt;
+}
+
+async function guardar(){
+  const cliente=document.getElementById('inp-cliente').value.trim();
+  const fecha=document.getElementById('inp-fecha').value;
+  const situacion=document.getElementById('inp-situacion').value.trim();
+  if(!cliente){showMsg('Ingresa el nombre del cliente.',false);return;}
+  if(!fecha){showMsg('Selecciona la fecha.',false);return;}
+  if(!situacion){showMsg('Describe la situación encontrada.',false);return;}
+  if(!fBefore){showMsg('Agrega la foto Antes.',false);return;}
+
+  const hallazgo={
+    lugar:document.getElementById('inp-lugar').value.trim(),
+    situacion,
+    recomendacion:document.getElementById('inp-rec').value.trim(),
+    fotoBefore:fBefore,
+    fotoAfter:fAfter,
+    estado:fAfter?'cerrado':'pendiente'
+  };
+
+  try {
+    if(!S.visitaId){
+      // Create new visit with first hallazgo
+      const res=await fetch('/api/visita',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          cliente, fecha,
+          asesora:document.getElementById('inp-asesora').value.trim(),
+          participantes:document.getElementById('inp-participantes').value.trim(),
+          hallazgos:[hallazgo]
+        })
+      });
+      const data=await res.json();
+      S.visitaId=data.visita_id;
+      const banner=document.getElementById('visit-saved-banner');
+      banner.innerHTML=`✓ Visita guardada en servidor (ID: ${S.visitaId}). Los hallazgos se sincronizan automáticamente.`;
+      banner.style.display='block';
+    } else {
+      // Add hallazgo to existing visit
+      await fetch(`/api/visita/${S.visitaId}/hallazgo`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(hallazgo)
+      });
+    }
+  } catch(e){
+    showMsg('Sin conexión — hallazgo guardado localmente.',false);
+  }
+
+  hallazgo.id=Date.now();
+  S.hallazgos.push(hallazgo);
+
+  document.getElementById('inp-lugar').value='';
+  document.getElementById('inp-situacion').value='';
+  document.getElementById('inp-rec').value='';
+  ['antes','despues'].forEach(s=>{
+    document.getElementById('img-'+s).style.display='none';
+    document.getElementById('box-'+s).querySelector('.ico').style.display='block';
+    document.getElementById('box-'+s).querySelector('span').style.display='block';
+  });
+  fBefore=null; fAfter=null;
+
+  document.getElementById('cnt').textContent=S.hallazgos.length;
+  showMsg(`✓ Hallazgo #${S.hallazgos.length} guardado`,true);
+  setTimeout(()=>{document.getElementById('msg').className='msg'},3000);
+}
+
+function renderList(){
+  const el=document.getElementById('list');
+  if(!S.hallazgos.length){
+    el.innerHTML='<div class="empty"><div class="eico">📋</div><p>Aún no hay hallazgos.</p></div>';
+    return;
+  }
+  el.innerHTML=S.hallazgos.map((h,i)=>`
+    <div class="card">
+      <div class="num">Hallazgo #${i+1}${h.lugar?' · '+h.lugar:''}</div>
+      <div class="title">${h.situacion}</div>
+      ${h.recomendacion?`<div class="sub">↳ ${h.recomendacion}</div>`:''}
+      <span class="sbadge ${h.fotoAfter?'s-c':'s-p'}">${h.fotoAfter?'✓ Foto después lista':'Pendiente foto después'}</span>
+      <div class="foto-row">
+        <div class="foto-mini"><img src="${h.fotoBefore}" alt="Antes"></div>
+        <div class="foto-mini">${h.fotoAfter?`<img src="${h.fotoAfter}" alt="Después">`:'<span>Pendiente</span>'}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateStats(){
+  const total=S.hallazgos.length;
+  const cerr=S.hallazgos.filter(h=>h.fotoAfter).length;
+  document.getElementById('st-total').textContent=total;
+  document.getElementById('st-cerr').textContent=cerr;
+  document.getElementById('btn-exp').disabled=total===0||!S.visitaId;
+  if(total>0&&!S.visitaId) document.getElementById('btn-exp').title='Guarda al menos un hallazgo primero';
+}
+
+async function exportar(){
+  if(!S.visitaId) return;
+  const btn=document.getElementById('btn-exp');
+  const loader=document.getElementById('loader');
+  btn.disabled=true; loader.classList.add('show');
+  try {
+    const res=await fetch(`/api/exportar/${S.visitaId}`);
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=`FT-SST-020_visita_${S.visitaId}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch(e){
+    alert('Error generando el informe.');
+  } finally {
+    btn.disabled=false; loader.classList.remove('show');
+  }
+}
+
+document.getElementById('inp-fecha').valueAsDate=new Date();
+updateSummary();
+</script>
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Subir fotos — Inspección SST</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;min-height:100vh}
+.app{max-width:480px;margin:0 auto;padding:0 0 3rem}
+.topbar{background:#1F4E79;padding:14px 16px;color:#fff}
+.topbar h1{font-size:17px;font-weight:600}
+.topbar p{font-size:12px;opacity:.75;margin-top:2px}
+.content{padding:16px}
+.info-card{background:#e3f2fd;border:1px solid #90caf9;border-radius:12px;padding:14px 16px;margin-bottom:16px}
+.info-card h2{font-size:14px;font-weight:700;color:#1565c0;margin-bottom:4px}
+.info-card p{font-size:13px;color:#1565c0;line-height:1.5}
+.hallazgo-card{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid #e8e6e0}
+.hnum{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px}
+.htitle{font-size:15px;font-weight:600;color:#1a1a18;margin-bottom:3px}
+.hsub{font-size:12px;color:#64748b;margin-bottom:12px}
+.antes-box{border-radius:10px;overflow:hidden;height:120px;margin-bottom:12px;background:#f0f4f8;border:1px solid #e2e8f0}
+.antes-box img{width:100%;height:100%;object-fit:cover}
+.antes-label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+.sbadge{display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500;margin-bottom:12px}
+.s-p{background:#faeeda;color:#854f0b}
+.s-c{background:#eaf3de;color:#3b6d11}
+.upload-box{border:1.5px dashed #ccc;border-radius:10px;background:#fafafa;position:relative;overflow:hidden;min-height:90px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;padding:10px;text-align:center;cursor:pointer}
+.upload-box .ico{font-size:24px}
+.upload-box span{font-size:12px;color:#999}
+.upload-box img{width:100%;height:120px;object-fit:cover;border-radius:8px;display:none}
+.upload-box input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.btn{width:100%;padding:11px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:none;margin-top:10px}
+.btn-dark{background:#1F4E79;color:#fff}
+.btn:disabled{opacity:.35}
+.msg{font-size:12px;text-align:center;margin-top:8px;font-weight:500}
+.msg.ok{color:#3b6d11}
+.msg.err{color:#a32d2d}
+.done-banner{background:#eaf3de;border:1px solid #a5d6a7;border-radius:10px;padding:10px 12px;font-size:13px;color:#2e7d32;margin-top:8px;display:none}
+.loader{text-align:center;padding:40px;color:#94a3b8}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid #e2e8f0;border-top-color:#1F4E79;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.success-screen{display:none;text-align:center;padding:4rem 2rem}
+.success-screen .ico{font-size:60px;margin-bottom:16px}
+.success-screen h2{font-size:20px;font-weight:700;color:#1F4E79;margin-bottom:8px}
+.success-screen p{font-size:14px;color:#64748b;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <h1>📸 Subir fotos del después</h1>
+    <p id="visit-info">Cargando visita...</p>
+  </div>
+
+  <div class="content">
+    <div id="main-content">
+      <div class="loader"><span class="spinner"></span>Cargando hallazgos...</div>
+    </div>
+  </div>
+
+  <div class="success-screen" id="success-screen">
+    <div class="ico">✅</div>
+    <h2>¡Gracias!</h2>
+    <p>Las fotos han sido enviadas correctamente.<br>El equipo de SST procesará el informe y le notificará.</p>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const visitaId = params.get('visita');
+let hallazgos = [];
+let fotos = {};
+
+async function cargar() {
+  if (!visitaId) {
+    document.getElementById('main-content').innerHTML = '<div class="loader">Link inválido. Contacta a tu asesor SST.</div>';
+    return;
+  }
+  try {
+    const res = await fetch('/api/visita/' + visitaId);
+    const data = await res.json();
+    const v = data.visita;
+    hallazgos = data.hallazgos;
+
+    document.getElementById('visit-info').textContent = `${v.cliente} — ${v.fecha}`;
+
+    const pendientes = hallazgos.filter(h => h.estado !== 'cerrado');
+
+    if (!pendientes.length) {
+      document.getElementById('main-content').innerHTML = `
+        <div class="info-card">
+          <h2>✅ Todo completado</h2>
+          <p>Todos los hallazgos de esta visita ya tienen foto del después. ¡Gracias!</p>
+        </div>
+      `;
+      return;
+    }
+
+    document.getElementById('main-content').innerHTML = `
+      <div class="info-card">
+        <h2>Hola 👋</h2>
+        <p>Por favor suba la foto del <strong>estado actual</strong> (después de la corrección) para cada hallazgo pendiente.</p>
+      </div>
+      <div id="hallazgos-list"></div>
+    `;
+
+    renderHallazgos(pendientes);
+  } catch(e) {
+    document.getElementById('main-content').innerHTML = '<div class="loader">Error cargando. Intenta de nuevo.</div>';
+  }
+}
+
+function renderHallazgos(hs) {
+  document.getElementById('hallazgos-list').innerHTML = hs.map(h => `
+    <div class="hallazgo-card" id="card-${h.id}">
+      <div class="hnum">Hallazgo #${h.id}${h.lugar ? ' · ' + h.lugar : ''}</div>
+      <div class="htitle">${h.situacion}</div>
+      ${h.recomendacion ? `<div class="hsub">↳ ${h.recomendacion}</div>` : ''}
+      <span class="sbadge s-p" id="badge-${h.id}">Pendiente foto después</span>
+
+      <div class="antes-label">Estado anterior (ANTES)</div>
+      <div class="antes-box">${h.foto_antes ? `<img src="${h.foto_antes}" alt="Antes">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:13px">Sin foto</div>'}</div>
+
+      <div class="antes-label">Estado actual (DESPUÉS) <span style="color:#ef4444">*</span></div>
+      <div class="upload-box" id="box-${h.id}">
+        <div class="ico">📷</div>
+        <span>Tomar o subir foto del estado actual</span>
+        <img id="img-${h.id}" alt="Después">
+        <input type="file" accept="image/*" capture="environment" onchange="previewFoto(this, ${h.id})">
+      </div>
+
+      <button class="btn btn-dark" id="btn-${h.id}" onclick="subirFoto(${h.id})" disabled>
+        Enviar foto
+      </button>
+      <div class="msg" id="msg-${h.id}"></div>
+      <div class="done-banner" id="done-${h.id}">✓ Foto enviada correctamente</div>
+    </div>
+  `).join('');
+}
+
+function previewFoto(input, hallazgoId) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    fotos[hallazgoId] = e.target.result;
+    const img = document.getElementById('img-' + hallazgoId);
+    img.src = e.target.result;
+    img.style.display = 'block';
+    const box = document.getElementById('box-' + hallazgoId);
+    box.querySelector('.ico').style.display = 'none';
+    box.querySelector('span').style.display = 'none';
+    document.getElementById('btn-' + hallazgoId).disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function subirFoto(hallazgoId) {
+  const foto = fotos[hallazgoId];
+  if (!foto) return;
+  const btn = document.getElementById('btn-' + hallazgoId);
+  const msg = document.getElementById('msg-' + hallazgoId);
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  try {
+    const res = await fetch(`/api/hallazgo/${hallazgoId}/despues`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({foto_despues: foto})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('badge-' + hallazgoId).className = 'sbadge s-c';
+      document.getElementById('badge-' + hallazgoId).textContent = '✓ Foto enviada';
+      document.getElementById('done-' + hallazgoId).style.display = 'block';
+      btn.style.display = 'none';
+
+      // Check if all done
+      const allBadges = document.querySelectorAll('[id^="badge-"]');
+      const allDone = Array.from(allBadges).every(b => b.classList.contains('s-c'));
+      if (allDone) {
+        setTimeout(() => {
+          document.querySelector('.content').style.display = 'none';
+          document.getElementById('success-screen').style.display = 'block';
+        }, 1500);
+      }
+    }
+  } catch(e) {
+    msg.className = 'msg err';
+    msg.textContent = 'Error al enviar. Verifica tu conexión e intenta de nuevo.';
+    btn.disabled = false;
+    btn.textContent = 'Enviar foto';
+  }
+}
+
+cargar();
+</script>
+</body>
+</html>

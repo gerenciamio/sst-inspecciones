@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel Admin — Inspecciones SST</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f4f8;min-height:100vh}
+.topbar{background:#1F4E79;padding:16px 24px;color:#fff}
+.topbar h1{font-size:18px;font-weight:700}
+.topbar p{font-size:12px;opacity:.7;margin-top:2px}
+.content{max-width:960px;margin:0 auto;padding:24px 16px}
+.card{background:#fff;border-radius:14px;border:1px solid #e2e8f0;margin-bottom:20px;overflow:hidden}
+.card-header{padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.card-header h2{font-size:15px;font-weight:700;color:#1F4E79}
+.card-body{padding:20px}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.stat{background:#fff;border-radius:12px;padding:16px;text-align:center;border:1px solid #e2e8f0}
+.stat-n{font-size:28px;font-weight:700;color:#1F4E79}
+.stat-l{font-size:12px;color:#94a3b8;margin-top:2px}
+.search-row{display:flex;gap:10px;flex-wrap:wrap}
+.search-row input{flex:1;min-width:160px;padding:10px 12px;font-size:14px;border:1.5px solid #e2e8f0;border-radius:8px}
+.search-row input:focus{outline:none;border-color:#1F4E79}
+.btn{padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:#1F4E79;color:#fff}
+.btn-outline{background:#fff;color:#1F4E79;border:1.5px solid #1F4E79}
+.btn-success{background:#2e7d32;color:#fff}
+.btn-whatsapp{background:#25D366;color:#fff}
+.btn-sm{padding:7px 12px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:10px 12px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e2e8f0;background:#f8fafc}
+td{padding:11px 12px;font-size:13px;color:#1e293b;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+tr:hover td{background:#f8fafc}
+.badge{display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600}
+.b-pend{background:#faeeda;color:#854f0b}
+.b-done{background:#eaf3de;color:#2e7d32}
+.b-blue{background:#dbeafe;color:#1d4ed8}
+.empty{text-align:center;padding:40px;color:#94a3b8;font-size:14px}
+.detail-panel{border-top:1px solid #e2e8f0;padding:20px;display:none}
+.detail-panel.show{display:block}
+.detail-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.detail-title{font-size:15px;font-weight:700;color:#1F4E79}
+.hallazgo-card{border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fafafa}
+.hnum{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px}
+.htitle{font-size:14px;font-weight:600;margin-bottom:2px}
+.hsub{font-size:12px;color:#64748b}
+.foto-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.foto-box{border-radius:8px;overflow:hidden;height:80px;background:#f0f4f8;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94a3b8}
+.foto-box img{width:100%;height:100%;object-fit:cover}
+.link-box{background:#f0f4f8;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;font-size:12px;color:#475569;word-break:break-all;margin:12px 0}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.loader{text-align:center;padding:30px;color:#94a3b8}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid #e2e8f0;border-top-color:#1F4E79;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>📊 Panel de Administración — Inspecciones SST</h1>
+  <p>Gestión de visitas y seguimiento de hallazgos</p>
+</div>
+
+<div class="content">
+  <div class="stats-row">
+    <div class="stat"><div class="stat-n" id="st-visitas">—</div><div class="stat-l">Visitas registradas</div></div>
+    <div class="stat"><div class="stat-n" id="st-hallazgos">—</div><div class="stat-l">Hallazgos totales</div></div>
+    <div class="stat"><div class="stat-n" id="st-pendientes">—</div><div class="stat-l">Pendientes foto después</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>🔍 Buscar visitas</h2>
+      <button class="btn btn-outline btn-sm" onclick="cargarVisitas()">↻ Actualizar</button>
+    </div>
+    <div class="card-body">
+      <div class="search-row" style="margin-bottom:16px">
+        <input type="text" id="busq-cliente" placeholder="Buscar por cliente..." oninput="cargarVisitas()">
+        <input type="date" id="busq-fecha" onchange="cargarVisitas()">
+        <button class="btn btn-primary" onclick="cargarVisitas()">Buscar</button>
+      </div>
+      <div id="visitas-table"><div class="loader"><span class="spinner"></span>Cargando...</div></div>
+    </div>
+    <!-- Detail panel -->
+    <div class="detail-panel" id="detail-panel">
+      <div class="detail-header">
+        <div class="detail-title" id="detail-title">Detalle de visita</div>
+        <div class="btn-row">
+          <button class="btn btn-success btn-sm" onclick="exportar()">⬇ Descargar Excel</button>
+          <button class="btn btn-outline btn-sm" onclick="cerrarDetalle()">✕ Cerrar</button>
+        </div>
+      </div>
+
+      <div style="background:#f0f4f8;border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="font-size:13px;color:#475569;margin-bottom:8px;font-weight:600">🔗 Link para el cliente — subir fotos del después</div>
+        <div class="link-box" id="client-link">—</div>
+        <div class="btn-row">
+          <button class="btn btn-whatsapp btn-sm" onclick="enviarWhatsApp()">📱 Enviar por WhatsApp</button>
+          <button class="btn btn-outline btn-sm" onclick="copiarLink()">📋 Copiar link</button>
+        </div>
+      </div>
+
+      <div id="hallazgos-list"><div class="loader">Cargando hallazgos...</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let visitaActual = null;
+
+async function cargarVisitas() {
+  const cliente = document.getElementById('busq-cliente').value;
+  const fecha = document.getElementById('busq-fecha').value;
+  const el = document.getElementById('visitas-table');
+  el.innerHTML = '<div class="loader"><span class="spinner"></span>Cargando...</div>';
+
+  try {
+    let url = '/api/visitas?';
+    if (cliente) url += 'cliente=' + encodeURIComponent(cliente) + '&';
+    if (fecha) url += 'fecha=' + fecha;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    // Update stats
+    const totalH = data.reduce((s,v) => s + (v.total_hallazgos||0), 0);
+    const totalP = data.reduce((s,v) => s + ((v.total_hallazgos||0)-(v.cerrados||0)), 0);
+    document.getElementById('st-visitas').textContent = data.length;
+    document.getElementById('st-hallazgos').textContent = totalH;
+    document.getElementById('st-pendientes').textContent = totalP;
+
+    if (!data.length) {
+      el.innerHTML = '<div class="empty">No se encontraron visitas. Ajusta los filtros de búsqueda.</div>';
+      return;
+    }
+
+    el.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Cliente</th><th>Fecha</th><th>Asesora</th>
+          <th>Hallazgos</th><th>Estado</th><th>Acciones</th>
+        </tr></thead>
+        <tbody>
+          ${data.map(v => {
+            const pend = (v.total_hallazgos||0) - (v.cerrados||0);
+            const done = v.cerrados||0;
+            return `
+            <tr>
+              <td><strong>${v.cliente}</strong></td>
+              <td>${v.fecha}</td>
+              <td>${v.asesora||'—'}</td>
+              <td><span class="badge b-blue">${v.total_hallazgos||0} hallazgos</span></td>
+              <td>
+                ${done > 0 ? `<span class="badge b-done">✓ ${done} cerrados</span> ` : ''}
+                ${pend > 0 ? `<span class="badge b-pend">${pend} pendientes</span>` : ''}
+                ${pend === 0 && done > 0 ? '<span class="badge b-done">✓ Completo</span>' : ''}
+              </td>
+              <td>
+                <button class="btn btn-primary btn-sm" onclick="verDetalle(${v.id}, '${v.cliente.replace(/'/g,"\\'")}', '${v.fecha}', '${(v.asesora||'').replace(/'/g,"\\'")}')">
+                  Ver / Enviar link
+                </button>
+              </td>
+            </tr>
+          `}).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch(e) {
+    el.innerHTML = '<div class="empty">Error cargando visitas.</div>';
+  }
+}
+
+async function verDetalle(id, cliente, fecha, asesora) {
+  visitaActual = {id, cliente, fecha, asesora};
+  const panel = document.getElementById('detail-panel');
+  panel.classList.add('show');
+  document.getElementById('detail-title').textContent = `📋 ${cliente} — ${fecha}`;
+
+  const link = window.location.origin + '/cliente?visita=' + id;
+  document.getElementById('client-link').textContent = link;
+
+  const el = document.getElementById('hallazgos-list');
+  el.innerHTML = '<div class="loader"><span class="spinner"></span>Cargando hallazgos...</div>';
+
+  panel.scrollIntoView({behavior:'smooth'});
+
+  try {
+    const res = await fetch('/api/visita/' + id);
+    const data = await res.json();
+    const hs = data.hallazgos;
+    if (!hs.length) {
+      el.innerHTML = '<div class="empty">Sin hallazgos registrados.</div>';
+      return;
+    }
+    el.innerHTML = hs.map((h, i) => `
+      <div class="hallazgo-card">
+        <div class="hnum">Hallazgo #${i+1}${h.lugar ? ' · ' + h.lugar : ''}</div>
+        <div class="htitle">${h.situacion}</div>
+        ${h.recomendacion ? `<div class="hsub">↳ ${h.recomendacion}</div>` : ''}
+        <span class="badge ${h.estado==='cerrado'?'b-done':'b-pend'}" style="margin-top:6px">
+          ${h.estado==='cerrado'?'✓ Foto después recibida':'Pendiente foto después'}
+        </span>
+        <div class="foto-row">
+          <div>
+            <div style="font-size:10px;color:#94a3b8;margin-bottom:4px;font-weight:600">ANTES</div>
+            <div class="foto-box">${h.foto_antes?`<img src="${h.foto_antes}" alt="Antes">`:'Sin foto'}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#94a3b8;margin-bottom:4px;font-weight:600">DESPUÉS</div>
+            <div class="foto-box">${h.foto_despues?`<img src="${h.foto_despues}" alt="Después">`:'Pendiente'}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="empty">Error cargando hallazgos.</div>';
+  }
+}
+
+function cerrarDetalle() {
+  document.getElementById('detail-panel').classList.remove('show');
+  visitaActual = null;
+}
+
+function copiarLink() {
+  const link = document.getElementById('client-link').textContent;
+  navigator.clipboard.writeText(link).then(() => {
+    const btn = event.target;
+    btn.textContent = '✓ Copiado';
+    setTimeout(() => btn.textContent = '📋 Copiar link', 2000);
+  });
+}
+
+function enviarWhatsApp() {
+  if (!visitaActual) return;
+  const link = document.getElementById('client-link').textContent;
+  const msg = `Hola! 👋 Le enviamos el link para completar el informe de inspección SST de *${visitaActual.cliente}* (${visitaActual.fecha}).\n\nPor favor ingrese y suba las fotos del *después* de cada hallazgo corregido:\n\n${link}\n\nGracias! 🛡`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+}
+
+async function exportar() {
+  if (!visitaActual) return;
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = 'Generando...';
+  try {
+    const res = await fetch('/api/exportar/' + visitaActual.id);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `FT-SST-020_${visitaActual.cliente.replace(/\s/g,'_')}_${visitaActual.fecha}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    alert('Error generando el Excel.');
+  } finally {
+    btn.disabled = false; btn.textContent = '⬇ Descargar Excel';
+  }
+}
+
+cargarVisitas();
+</script>
+</body>
+</html>
