@@ -3,3 +3,4 @@ flask-cors
 openpyxl
 Pillow
 gunicorn
+psycopg2-binary
