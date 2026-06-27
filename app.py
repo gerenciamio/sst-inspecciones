@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-import sqlite3, os, io, json, base64
+import os, io, json, base64
 from datetime import datetime
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -10,17 +10,49 @@ from PIL import Image as PILImage
 app = Flask(__name__)
 CORS(app)
 
-DB_PATH = os.environ.get('DB_PATH', 'inspecciones.db')
+DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
-# ── Database ──────────────────────────────────────────────────────────────────
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    if DATABASE_URL:
+        import psycopg2
+        import psycopg2.extras
+        conn = psycopg2.connect(DATABASE_URL)
+        return conn, 'pg'
+    else:
+        import sqlite3
+        conn = sqlite3.connect('inspecciones.db')
+        conn.row_factory = sqlite3.Row
+        return conn, 'sqlite'
 
 def init_db():
-    with get_db() as conn:
-        conn.execute('''
+    conn, dbtype = get_db()
+    if dbtype == 'pg':
+        cur = conn.cursor()
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS visitas (
+                id SERIAL PRIMARY KEY,
+                cliente TEXT NOT NULL,
+                fecha TEXT NOT NULL,
+                participantes TEXT,
+                asesora TEXT,
+                creado TEXT NOT NULL
+            )
+        ''')
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS hallazgos (
+                id SERIAL PRIMARY KEY,
+                visita_id INTEGER NOT NULL,
+                lugar TEXT,
+                situacion TEXT,
+                recomendacion TEXT,
+                foto_antes TEXT,
+                foto_despues TEXT,
+                estado TEXT DEFAULT 'pendiente'
+            )
+        ''')
+    else:
+        cur = conn.cursor()
+        cur.execute('''
             CREATE TABLE IF NOT EXISTS visitas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 cliente TEXT NOT NULL,
@@ -30,7 +62,7 @@ def init_db():
                 creado TEXT NOT NULL
             )
         ''')
-        conn.execute('''
+        cur.execute('''
             CREATE TABLE IF NOT EXISTS hallazgos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 visita_id INTEGER NOT NULL,
@@ -39,15 +71,15 @@ def init_db():
                 recomendacion TEXT,
                 foto_antes TEXT,
                 foto_despues TEXT,
-                estado TEXT DEFAULT 'pendiente',
-                FOREIGN KEY(visita_id) REFERENCES visitas(id)
+                estado TEXT DEFAULT 'pendiente'
             )
         ''')
-        conn.commit()
+    conn.commit()
+    cur.close()
+    conn.close()
 
 init_db()
 
-# ── Static files ──────────────────────────────────────────────────────────────
 @app.route('/')
 def index():
     with open('index.html', encoding='utf-8') as f:
@@ -63,7 +95,6 @@ def cliente():
     with open('cliente.html', encoding='utf-8') as f:
         return f.read()
 
-# ── API: create visit + hallazgos ─────────────────────────────────────────────
 @app.route('/api/visita', methods=['POST'])
 def crear_visita():
     data = request.get_json()
@@ -72,78 +103,115 @@ def crear_visita():
     if not cliente or not fecha:
         return jsonify({'error': 'Cliente y fecha requeridos'}), 400
     ahora = datetime.now().strftime('%Y-%m-%d %H:%M')
-    with get_db() as conn:
-        cur = conn.execute(
+    conn, dbtype = get_db()
+    cur = conn.cursor()
+    if dbtype == 'pg':
+        cur.execute(
+            'INSERT INTO visitas (cliente, fecha, participantes, asesora, creado) VALUES (%s,%s,%s,%s,%s) RETURNING id',
+            (cliente, fecha, data.get('participantes',''), data.get('asesora',''), ahora)
+        )
+        visita_id = cur.fetchone()[0]
+        for h in data.get('hallazgos', []):
+            cur.execute(
+                'INSERT INTO hallazgos (visita_id, lugar, situacion, recomendacion, foto_antes, estado) VALUES (%s,%s,%s,%s,%s,%s)',
+                (visita_id, h.get('lugar',''), h.get('situacion',''), h.get('recomendacion',''), h.get('fotoBefore',''), 'pendiente')
+            )
+    else:
+        cur.execute(
             'INSERT INTO visitas (cliente, fecha, participantes, asesora, creado) VALUES (?,?,?,?,?)',
             (cliente, fecha, data.get('participantes',''), data.get('asesora',''), ahora)
         )
         visita_id = cur.lastrowid
         for h in data.get('hallazgos', []):
-            conn.execute(
+            cur.execute(
                 'INSERT INTO hallazgos (visita_id, lugar, situacion, recomendacion, foto_antes, estado) VALUES (?,?,?,?,?,?)',
                 (visita_id, h.get('lugar',''), h.get('situacion',''), h.get('recomendacion',''), h.get('fotoBefore',''), 'pendiente')
             )
-        conn.commit()
+    conn.commit()
+    cur.close()
+    conn.close()
     return jsonify({'ok': True, 'visita_id': visita_id})
 
-# ── API: add hallazgo to existing visit ───────────────────────────────────────
 @app.route('/api/visita/<int:visita_id>/hallazgo', methods=['POST'])
 def agregar_hallazgo(visita_id):
     data = request.get_json()
-    with get_db() as conn:
-        conn.execute(
-            'INSERT INTO hallazgos (visita_id, lugar, situacion, recomendacion, foto_antes, estado) VALUES (?,?,?,?,?,?)',
-            (visita_id, data.get('lugar',''), data.get('situacion',''), data.get('recomendacion',''), data.get('fotoBefore',''), 'pendiente')
-        )
-        conn.commit()
+    conn, dbtype = get_db()
+    cur = conn.cursor()
+    ph = '%s' if dbtype == 'pg' else '?'
+    cur.execute(
+        f'INSERT INTO hallazgos (visita_id, lugar, situacion, recomendacion, foto_antes, estado) VALUES ({ph},{ph},{ph},{ph},{ph},{ph})',
+        (visita_id, data.get('lugar',''), data.get('situacion',''), data.get('recomendacion',''), data.get('fotoBefore',''), 'pendiente')
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
     return jsonify({'ok': True})
 
-# ── API: list visits ──────────────────────────────────────────────────────────
 @app.route('/api/visitas')
 def listar_visitas():
     cliente_q = request.args.get('cliente', '')
     fecha_q = request.args.get('fecha', '')
-    with get_db() as conn:
-        query = '''SELECT v.*, 
-            COUNT(h.id) as total_hallazgos,
-            SUM(CASE WHEN h.estado='cerrado' THEN 1 ELSE 0 END) as cerrados
-            FROM visitas v LEFT JOIN hallazgos h ON h.visita_id=v.id
-            WHERE 1=1'''
-        params = []
-        if cliente_q:
-            query += ' AND LOWER(v.cliente) LIKE ?'
-            params.append(f'%{cliente_q.lower()}%')
-        if fecha_q:
-            query += ' AND v.fecha=?'
-            params.append(fecha_q)
-        query += ' GROUP BY v.id ORDER BY v.creado DESC LIMIT 100'
-        rows = conn.execute(query, params).fetchall()
-    return jsonify([dict(r) for r in rows])
+    conn, dbtype = get_db()
+    ph = '%s' if dbtype == 'pg' else '?'
+    if dbtype == 'pg':
+        import psycopg2.extras
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    else:
+        conn.row_factory = __import__('sqlite3').Row
+        cur = conn.cursor()
+    query = f'''SELECT v.*,
+        COUNT(h.id) as total_hallazgos,
+        SUM(CASE WHEN h.estado='cerrado' THEN 1 ELSE 0 END) as cerrados
+        FROM visitas v LEFT JOIN hallazgos h ON h.visita_id=v.id
+        WHERE 1=1'''
+    params = []
+    if cliente_q:
+        query += f' AND LOWER(v.cliente) LIKE {ph}'
+        params.append(f'%{cliente_q.lower()}%')
+    if fecha_q:
+        query += f' AND v.fecha={ph}'
+        params.append(fecha_q)
+    query += ' GROUP BY v.id ORDER BY v.creado DESC LIMIT 100'
+    cur.execute(query, params)
+    rows = [dict(r) for r in cur.fetchall()]
+    cur.close()
+    conn.close()
+    return jsonify(rows)
 
-# ── API: get visit detail with hallazgos ──────────────────────────────────────
 @app.route('/api/visita/<int:visita_id>')
 def detalle_visita(visita_id):
-    with get_db() as conn:
-        v = conn.execute('SELECT * FROM visitas WHERE id=?', (visita_id,)).fetchone()
-        if not v:
-            return jsonify({'error': 'No encontrada'}), 404
-        hs = conn.execute('SELECT * FROM hallazgos WHERE visita_id=? ORDER BY id', (visita_id,)).fetchall()
-    return jsonify({'visita': dict(v), 'hallazgos': [dict(h) for h in hs]})
+    conn, dbtype = get_db()
+    ph = '%s' if dbtype == 'pg' else '?'
+    if dbtype == 'pg':
+        import psycopg2.extras
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    else:
+        conn.row_factory = __import__('sqlite3').Row
+        cur = conn.cursor()
+    cur.execute(f'SELECT * FROM visitas WHERE id={ph}', (visita_id,))
+    v = cur.fetchone()
+    if not v:
+        cur.close(); conn.close()
+        return jsonify({'error': 'No encontrada'}), 404
+    cur.execute(f'SELECT * FROM hallazgos WHERE visita_id={ph} ORDER BY id', (visita_id,))
+    hs = [dict(h) for h in cur.fetchall()]
+    cur.close()
+    conn.close()
+    return jsonify({'visita': dict(v), 'hallazgos': hs})
 
-# ── API: upload after photo ───────────────────────────────────────────────────
 @app.route('/api/hallazgo/<int:hallazgo_id>/despues', methods=['POST'])
 def subir_despues(hallazgo_id):
     data = request.get_json()
     foto = data.get('foto_despues', '')
-    with get_db() as conn:
-        conn.execute(
-            "UPDATE hallazgos SET foto_despues=?, estado='cerrado' WHERE id=?",
-            (foto, hallazgo_id)
-        )
-        conn.commit()
+    conn, dbtype = get_db()
+    ph = '%s' if dbtype == 'pg' else '?'
+    cur = conn.cursor()
+    cur.execute(f"UPDATE hallazgos SET foto_despues={ph}, estado='cerrado' WHERE id={ph}", (foto, hallazgo_id))
+    conn.commit()
+    cur.close()
+    conn.close()
     return jsonify({'ok': True})
 
-# ── API: export Excel ─────────────────────────────────────────────────────────
 def b64_to_xl_image(b64_str, max_w=200, max_h=150):
     try:
         data = base64.b64decode(b64_str.split(',')[1])
@@ -158,19 +226,24 @@ def b64_to_xl_image(b64_str, max_w=200, max_h=150):
 
 @app.route('/api/exportar/<int:visita_id>')
 def exportar_excel(visita_id):
-    with get_db() as conn:
-        v = conn.execute('SELECT * FROM visitas WHERE id=?', (visita_id,)).fetchone()
-        if not v:
-            return jsonify({'error': 'No encontrada'}), 404
-        hs = conn.execute('SELECT * FROM hallazgos WHERE visita_id=? ORDER BY id', (visita_id,)).fetchall()
-
-    v = dict(v)
-    hs = [dict(h) for h in hs]
+    conn, dbtype = get_db()
+    ph = '%s' if dbtype == 'pg' else '?'
+    if dbtype == 'pg':
+        import psycopg2.extras
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    else:
+        conn.row_factory = __import__('sqlite3').Row
+        cur = conn.cursor()
+    cur.execute(f'SELECT * FROM visitas WHERE id={ph}', (visita_id,))
+    v = dict(cur.fetchone())
+    cur.execute(f'SELECT * FROM hallazgos WHERE visita_id={ph} ORDER BY id', (visita_id,))
+    hs = [dict(h) for h in cur.fetchall()]
+    cur.close()
+    conn.close()
 
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = 'Informe de inspección'
-
     thin = Side(style='thin', color='000000')
     ALL_BORDERS = Border(top=thin, bottom=thin, left=thin, right=thin)
 
@@ -183,15 +256,11 @@ def exportar_excel(visita_id):
         if border:
             cell.border = ALL_BORDERS
 
-    # Column widths
     for col, w in [('A',16),('B',10),('C',12),('D',21),('E',38),('F',38),('G',25),('H',12)]:
         ws.column_dimensions[col].width = w
+    for i, h in enumerate([14,14,33,33,35], 1):
+        ws.row_dimensions[i].height = h
 
-    # Row heights header
-    for i in range(1,6):
-        ws.row_dimensions[i].height = [14,14,33,33,35][i-1]
-
-    # Header
     apply(ws['A1'], 'LOGO', bold=True)
     apply(ws['C1'], 'SEGURIDAD SALUD EN EL TRABAJO', bold=True)
     apply(ws['F1'], f'Fecha: {v["fecha"]}', bold=True, sz=8)
@@ -206,7 +275,6 @@ def exportar_excel(visita_id):
     for col, txt in [('A','LUGAR'),('B','SITUACIÓN ENCONTRADA'),('E','FOTO ANTES'),('F','FOTO DESPUÉS'),('G','RECOMENDACIÓN'),('H','ESTADO')]:
         apply(ws[f'{col}5'], txt, bold=True, fill=gray, border=True)
 
-    # Merges header
     for merge in ['A1:B3','C1:E1','C2:E3','F1:G1','F2:G2','F3:G3','A4:B4','E4:H4','B5:D5']:
         ws.merge_cells(merge)
 
@@ -223,13 +291,11 @@ def exportar_excel(visita_id):
         apply(ws[f'E{r}'], '', border=True)
         apply(ws[f'F{r}'], '', border=True)
         ws.merge_cells(f'B{r}:D{r}')
-
         if h.get('foto_antes'):
             img = b64_to_xl_image(h['foto_antes'])
             if img:
                 img.anchor = f'E{r}'
                 ws.add_image(img)
-
         if h.get('foto_despues'):
             img2 = b64_to_xl_image(h['foto_despues'])
             if img2:
