@@ -175,3 +175,222 @@ textarea{resize:none;font-family:inherit}
     </div>
   </div>
 </div>
+<script>
+const S = {hallazgos:[], visitaId: null};
+let fBefore=null, fAfter=null;
+
+function iniciarNuevaVisita(){
+  document.getElementById('start-screen').style.display='none';
+  document.getElementById('main-app').style.display='block';
+  document.getElementById('inp-fecha').valueAsDate=new Date();
+  updateSummary();
+}
+
+function mostrarBusqueda(){
+  const box=document.getElementById('search-box');
+  box.style.display=box.style.display==='block'?'none':'block';
+}
+
+async function buscarVisitas(){
+  const cliente=document.getElementById('busq-cliente').value.trim();
+  const fecha=document.getElementById('busq-fecha').value;
+  const el=document.getElementById('search-results');
+  el.innerHTML='<div style="font-size:13px;color:#888;padding:8px 0">Buscando...</div>';
+  try {
+    let url='/api/visitas?';
+    if(cliente) url+='cliente='+encodeURIComponent(cliente)+'&';
+    if(fecha) url+='fecha='+fecha;
+    const res=await fetch(url);
+    const data=await res.json();
+    if(!data.length){el.innerHTML='<div style="font-size:13px;color:#888;padding:8px 0">No se encontraron visitas.</div>';return;}
+    el.innerHTML=data.map(v=>`
+      <div class="search-result" onclick="continuarVisita(${v.id},'${v.cliente.replace(/'/g,"\\'")}','${v.fecha}','${(v.asesora||'').replace(/'/g,"\\'")}','${(v.participantes||'').replace(/'/g,"\\'")}')">
+        <div class="sr-title">${v.cliente}</div>
+        <div class="sr-sub">${v.fecha}${v.asesora?' · '+v.asesora:''}</div>
+        <span class="sr-badge">${v.total_hallazgos||0} hallazgos · ${(v.total_hallazgos||0)-(v.cerrados||0)} pendientes</span>
+      </div>
+    `).join('');
+  } catch(e){el.innerHTML='<div style="font-size:13px;color:#a32d2d">Error buscando.</div>';}
+}
+
+async function continuarVisita(id,cliente,fecha,asesora,participantes){
+  S.visitaId=id;
+  document.getElementById('start-screen').style.display='none';
+  document.getElementById('main-app').style.display='block';
+  document.getElementById('inp-cliente').value=cliente;
+  document.getElementById('inp-fecha').value=fecha;
+  document.getElementById('inp-asesora').value=asesora;
+  document.getElementById('inp-participantes').value=participantes;
+  updateSummary();
+  const banner=document.getElementById('visit-saved-banner');
+  banner.innerHTML=`✓ Continuando visita de <strong>${cliente}</strong> — ${fecha}`;
+  banner.style.display='block';
+  try {
+    const res=await fetch('/api/visita/'+id);
+    const data=await res.json();
+    S.hallazgos=data.hallazgos.map(h=>({
+      id:h.id,lugar:h.lugar,situacion:h.situacion,recomendacion:h.recomendacion,
+      fotoBefore:h.foto_antes,fotoAfter:h.foto_despues,estado:h.estado,
+      factor:h.factor||'',prioridad:h.prioridad||'',responsable:h.responsable||'',
+      estado_acpm:h.estado_acpm||'',fecha_ejecucion:h.fecha_ejecucion||'',fecha_seguimiento:h.fecha_seguimiento||''
+    }));
+    document.getElementById('cnt').textContent=S.hallazgos.length;
+  } catch(e){}
+}
+
+function volverInicio(){
+  S.hallazgos=[]; S.visitaId=null; fBefore=null; fAfter=null;
+  document.getElementById('start-screen').style.display='block';
+  document.getElementById('main-app').style.display='none';
+  document.getElementById('search-results').innerHTML='';
+  document.getElementById('search-box').style.display='none';
+}
+
+function showTab(t){
+  ['registro','hallazgos','exportar'].forEach(x=>{
+    document.getElementById('tab-'+x).style.display=x===t?'block':'none';
+  });
+  document.querySelectorAll('.tab').forEach((el,i)=>{
+    el.classList.toggle('active',['registro','hallazgos','exportar'][i]===t);
+  });
+  if(t==='hallazgos') renderList();
+  if(t==='exportar') updateStats();
+}
+
+function updateSummary(){
+  const c=document.getElementById('inp-cliente').value;
+  const f=document.getElementById('inp-fecha').value;
+  document.getElementById('visit-summary').textContent=c||f?(c||'Cliente')+(f?' — '+fmtFecha(f):''):'Nueva visita';
+}
+
+function fmtFecha(d){
+  if(!d) return '';
+  const [y,m,day]=d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function previewFoto(input,side){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    if(side==='antes'){
+      fBefore=e.target.result;
+      document.getElementById('img-antes').src=e.target.result;
+      document.getElementById('img-antes').style.display='block';
+      document.getElementById('box-antes').querySelector('.ico').style.display='none';
+      document.getElementById('box-antes').querySelector('span').style.display='none';
+    } else {
+      fAfter=e.target.result;
+      document.getElementById('img-despues').src=e.target.result;
+      document.getElementById('img-despues').style.display='block';
+      document.getElementById('box-despues').querySelector('.ico').style.display='none';
+      document.getElementById('box-despues').querySelector('span').style.display='none';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function showMsg(txt,ok){
+  const m=document.getElementById('msg');
+  m.className='msg '+(ok?'ok':'err');
+  m.textContent=txt;
+}
+
+async function guardar(){
+  const cliente=document.getElementById('inp-cliente').value.trim();
+  const fecha=document.getElementById('inp-fecha').value;
+  const situacion=document.getElementById('inp-situacion').value.trim();
+  if(!cliente){showMsg('Ingresa el nombre del cliente.',false);return;}
+  if(!fecha){showMsg('Selecciona la fecha.',false);return;}
+  if(!situacion){showMsg('Describe la situación encontrada.',false);return;}
+  if(!fBefore){showMsg('Agrega la foto Antes.',false);return;}
+  const hallazgo={
+    lugar:document.getElementById('inp-area').value,
+    situacion,
+    recomendacion:document.getElementById('inp-rec').value.trim(),
+    factor:document.getElementById('inp-factor').value,
+    prioridad:document.getElementById('inp-prioridad').value,
+    responsable:document.getElementById('inp-responsable').value.trim(),
+    estado_acpm:document.getElementById('inp-estado').value,
+    fecha_ejecucion:document.getElementById('inp-fecha-ejecucion').value,
+    fecha_seguimiento:document.getElementById('inp-fecha-seguimiento').value,
+    fotoBefore:fBefore,fotoAfter:fAfter,
+    estado:fAfter?'cerrado':'pendiente'
+  };
+  try {
+    if(!S.visitaId){
+      const res=await fetch('/api/visita',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({cliente,fecha,asesora:document.getElementById('inp-asesora').value.trim(),
+        participantes:document.getElementById('inp-participantes').value.trim(),hallazgos:[hallazgo]})});
+      const data=await res.json();
+      S.visitaId=data.visita_id;
+      const banner=document.getElementById('visit-saved-banner');
+      banner.innerHTML=`✓ Visita guardada (ID: ${S.visitaId})`;
+      banner.style.display='block';
+    } else {
+      await fetch(`/api/visita/${S.visitaId}/hallazgo`,{method:'POST',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify(hallazgo)});
+    }
+  } catch(e){showMsg('Sin conexión — intenta de nuevo.',false);return;}
+  hallazgo.id=Date.now();
+  S.hallazgos.push(hallazgo);
+  ['inp-area','inp-factor','inp-prioridad','inp-estado'].forEach(id=>document.getElementById(id).value='');
+  ['inp-situacion','inp-rec','inp-responsable'].forEach(id=>document.getElementById(id).value='');
+  ['inp-fecha-ejecucion','inp-fecha-seguimiento'].forEach(id=>document.getElementById(id).value='');
+  ['antes','despues'].forEach(s=>{
+    document.getElementById('img-'+s).style.display='none';
+    document.getElementById('box-'+s).querySelector('.ico').style.display='block';
+    document.getElementById('box-'+s).querySelector('span').style.display='block';
+  });
+  fBefore=null; fAfter=null;
+  document.getElementById('cnt').textContent=S.hallazgos.length;
+  showMsg(`✓ Hallazgo #${S.hallazgos.length} guardado`,true);
+  setTimeout(()=>{document.getElementById('msg').className='msg'},3000);
+}
+
+function renderList(){
+  const el=document.getElementById('list');
+  if(!S.hallazgos.length){el.innerHTML='<div class="empty"><div class="eico">📋</div><p>Aún no hay hallazgos.</p></div>';return;}
+  el.innerHTML=S.hallazgos.map((h,i)=>`
+    <div class="card">
+      <div class="num">Hallazgo #${i+1}${h.lugar?' · '+h.lugar:''}</div>
+      <div class="title">${h.situacion}</div>
+      ${h.recomendacion?`<div class="sub">↳ ${h.recomendacion}</div>`:''}
+      ${h.factor||h.prioridad?`<div class="sub" style="margin-top:3px">${[h.factor,h.prioridad,h.responsable].filter(Boolean).join(' · ')}</div>`:''}
+      <span class="sbadge ${h.fotoAfter?'s-c':'s-p'}">${h.fotoAfter?'✓ Foto después lista':'Pendiente foto después'}</span>
+      <div class="foto-row">
+        <div class="foto-mini"><img src="${h.fotoBefore}" alt="Antes"></div>
+        <div class="foto-mini">${h.fotoAfter?`<img src="${h.fotoAfter}" alt="Después">`:'<span>Pendiente</span>'}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateStats(){
+  const total=S.hallazgos.length;
+  const cerr=S.hallazgos.filter(h=>h.fotoAfter).length;
+  document.getElementById('st-total').textContent=total;
+  document.getElementById('st-cerr').textContent=cerr;
+  document.getElementById('btn-exp').disabled=total===0||!S.visitaId;
+}
+
+async function exportar(){
+  if(!S.visitaId) return;
+  const btn=document.getElementById('btn-exp');
+  const loader=document.getElementById('loader');
+  btn.disabled=true; loader.classList.add('show');
+  try {
+    const res=await fetch(`/api/exportar/${S.visitaId}`);
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=`Informes_SST_visita_${S.visitaId}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch(e){alert('Error generando el informe.');}
+  finally{btn.disabled=false;loader.classList.remove('show');}
+}
+</script>
+</body>
+</html>
