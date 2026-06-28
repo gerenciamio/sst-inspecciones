@@ -27,8 +27,17 @@ def get_db():
 def init_db():
     conn, dbtype = get_db()
     if dbtype == 'pg':
-        cur = conn.cursor()
-        cur.execute('''
+        cur.execute('''CREATE TABLE IF NOT EXISTS hallazgos (
+            id SERIAL PRIMARY KEY, visita_id INTEGER NOT NULL,
+            lugar TEXT, situacion TEXT, recomendacion TEXT,
+            foto_antes TEXT, foto_despues TEXT, estado TEXT DEFAULT 'pendiente',
+            factor TEXT, prioridad TEXT, responsable TEXT,
+            estado_acpm TEXT, fecha_ejecucion TEXT, fecha_seguimiento TEXT)''')
+        for col in ['factor TEXT','prioridad TEXT','responsable TEXT','estado_acpm TEXT','fecha_ejecucion TEXT','fecha_seguimiento TEXT']:
+            try:
+                cur.execute(f"ALTER TABLE hallazgos ADD COLUMN {col}")
+            except:
+                pass
             CREATE TABLE IF NOT EXISTS visitas (
                 id SERIAL PRIMARY KEY,
                 cliente TEXT NOT NULL,
@@ -113,8 +122,8 @@ def crear_visita():
         visita_id = cur.fetchone()[0]
         for h in data.get('hallazgos', []):
             cur.execute(
-                'INSERT INTO hallazgos (visita_id, lugar, situacion, recomendacion, foto_antes, estado) VALUES (%s,%s,%s,%s,%s,%s)',
-                (visita_id, h.get('lugar',''), h.get('situacion',''), h.get('recomendacion',''), h.get('fotoBefore',''), 'pendiente')
+                'INSERT INTO hallazgos (visita_id, lugar, situacion, recomendacion, foto_antes, estado, factor, prioridad, responsable, estado_acpm, fecha_ejecucion, fecha_seguimiento) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                (visita_id, h.get('lugar',''), h.get('situacion',''), h.get('recomendacion',''), h.get('fotoBefore',''), 'pendiente', h.get('factor',''), h.get('prioridad',''), h.get('responsable',''), h.get('estado_acpm',''), h.get('fecha_ejecucion',''), h.get('fecha_seguimiento',''))
             )
     else:
         cur.execute(
@@ -124,8 +133,8 @@ def crear_visita():
         visita_id = cur.lastrowid
         for h in data.get('hallazgos', []):
             cur.execute(
-                'INSERT INTO hallazgos (visita_id, lugar, situacion, recomendacion, foto_antes, estado) VALUES (?,?,?,?,?,?)',
-                (visita_id, h.get('lugar',''), h.get('situacion',''), h.get('recomendacion',''), h.get('fotoBefore',''), 'pendiente')
+                'INSERT INTO hallazgos (visita_id, lugar, situacion, recomendacion, foto_antes, estado, factor, prioridad, responsable, estado_acpm, fecha_ejecucion, fecha_seguimiento) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                (visita_id, h.get('lugar',''), h.get('situacion',''), h.get('recomendacion',''), h.get('fotoBefore',''), 'pendiente', h.get('factor',''), h.get('prioridad',''), h.get('responsable',''), h.get('estado_acpm',''), h.get('fecha_ejecucion',''), h.get('fecha_seguimiento',''))
             )
     conn.commit()
     cur.close()
@@ -139,8 +148,8 @@ def agregar_hallazgo(visita_id):
     cur = conn.cursor()
     ph = '%s' if dbtype == 'pg' else '?'
     cur.execute(
-        f'INSERT INTO hallazgos (visita_id, lugar, situacion, recomendacion, foto_antes, estado) VALUES ({ph},{ph},{ph},{ph},{ph},{ph})',
-        (visita_id, data.get('lugar',''), data.get('situacion',''), data.get('recomendacion',''), data.get('fotoBefore',''), 'pendiente')
+        f'INSERT INTO hallazgos (visita_id, lugar, situacion, recomendacion, foto_antes, estado, factor, prioridad, responsable, estado_acpm, fecha_ejecucion, fecha_seguimiento) VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})',
+        (visita_id, data.get('lugar',''), data.get('situacion',''), data.get('recomendacion',''), data.get('fotoBefore',''), 'pendiente', data.get('factor',''), data.get('prioridad',''), data.get('responsable',''), data.get('estado_acpm',''), data.get('fecha_ejecucion',''), data.get('fecha_seguimiento',''))
     )
     conn.commit()
     cur.close()
@@ -314,9 +323,67 @@ def exportar_excel(visita_id):
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
-    fname = f"FT-SST-020_{v['cliente'].replace(' ','_')}_{v['fecha']}.xlsx"
-    return send_file(buf, as_attachment=True, download_name=fname,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    # ── EXCEL 2: BASE DE DATOS ACPM ──────────────────────────────────────────
+    wb2 = openpyxl.Workbook()
+    ws2 = wb2.active
+    ws2.title = 'BASE DE DATOS'
+    ws2.merge_cells('A1:S1')
+    ws2['A1'].value = 'MATRIZ DE SEGUIMIENTO A LOS PLANES DE ACCIÓN'
+    ws2['A1'].font = Font(name='Arial', bold=True, size=14, color='FFFFFF')
+    ws2['A1'].fill = PatternFill('solid', fgColor='1F4E79')
+    ws2['A1'].alignment = Alignment(horizontal='center', vertical='center')
+    ws2.row_dimensions[1].height = 30
+    ws2.merge_cells('A2:S2')
+    ws2.row_dimensions[2].height = 8
+    headers = [(1,'SEDE'),(2,'MES'),(3,'FECHA'),(4,'FUENTE'),(5,'AREAS'),(6,'DESCRIPCION'),(7,'EVIDENCIA FOTOGRAFICA ANTES'),(8,'PLAN DE ACCIÓN SUGERIDO'),(9,'FACTOR DE RIESGO'),(10,'PRIORIDAD'),(11,'RESPONSABLE'),(12,'FECHA EJECUCION'),(13,'FECHA SEGUIMIENTO'),(17,'REGISTRO FOTOGRAFICO DESPUES'),(18,'ESTADO'),(19,'OBSERVACIONES')]
+    for col, txt in headers:
+        cell = ws2.cell(row=3, column=col, value=txt)
+        cell.font = Font(name='Arial', bold=True, size=9, color='FFFFFF')
+        cell.fill = PatternFill('solid', fgColor='1F4E79')
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border = ALL_BORDERS
+    ws2.row_dimensions[3].height = 35
+    ws2.freeze_panes = 'A4'
+    for col, w in {1:14,2:10,3:12,4:14,5:12,6:30,7:22,8:35,9:14,10:12,11:18,12:14,13:14,17:22,18:12,19:20}.items():
+        ws2.column_dimensions[openpyxl.utils.get_column_letter(col)].width = w
+    mes_map = {1:'Enero',2:'Febrero',3:'Marzo',4:'Abril',5:'Mayo',6:'Junio',7:'Julio',8:'Agosto',9:'Septiembre',10:'Octubre',11:'Noviembre',12:'Diciembre'}
+    try:
+        mes = mes_map.get(int(v['fecha'].split('-')[1]), '')
+    except:
+        mes = ''
+    alt_fill = PatternFill('solid', fgColor='EBF3FB')
+    for row_idx, h in enumerate(hs, 4):
+        ws2.row_dimensions[row_idx].height = 120
+        fill = alt_fill if row_idx % 2 == 0 else PatternFill()
+        for col, val in [(1,v['cliente']),(2,mes),(3,v['fecha']),(4,'Inspección de Seguridad'),(5,h.get('lugar','')),(6,h.get('situacion','')),(8,h.get('recomendacion','')),(9,h.get('factor','')),(10,h.get('prioridad','')),(11,h.get('responsable','')),(12,h.get('fecha_ejecucion','')),(13,h.get('fecha_seguimiento','')),(18,h.get('estado_acpm','')),(19,'')]:
+            cell = ws2.cell(row=row_idx, column=col, value=val)
+            cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+            cell.border = ALL_BORDERS
+            if fill.fill_type: cell.fill = fill
+        for col in [7, 17]:
+            ws2.cell(row=row_idx, column=col).border = ALL_BORDERS
+        if h.get('foto_antes'):
+            img = b64_to_xl_image(h['foto_antes'], max_w=160, max_h=110)
+            if img:
+                img.anchor = openpyxl.utils.get_column_letter(7) + str(row_idx)
+                ws2.add_image(img)
+        if h.get('foto_despues'):
+            img2 = b64_to_xl_image(h['foto_despues'], max_w=160, max_h=110)
+            if img2:
+                img2.anchor = openpyxl.utils.get_column_letter(17) + str(row_idx)
+                ws2.add_image(img2)
+    import zipfile
+    buf1 = io.BytesIO(); wb1.save(buf1); buf1.seek(0)
+    buf2 = io.BytesIO(); wb2.save(buf2); buf2.seek(0)
+    zip_buf = io.BytesIO()
+    fname_base = f"{v['cliente'].replace(' ','_')}_{v['fecha']}"
+    with zipfile.ZipFile(zip_buf, 'w') as zf:
+        zf.writestr(f'FT-SST-020_{fname_base}.xlsx', buf1.read())
+        zf.writestr(f'Matriz_ACPM_{fname_base}.xlsx', buf2.read())
+    zip_buf.seek(0)
+    return send_file(zip_buf, as_attachment=True,
+                     download_name=f'Informes_SST_{fname_base}.zip',
+                     mimetype='application/zip')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
