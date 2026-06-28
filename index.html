@@ -73,7 +73,7 @@ textarea{resize:none;font-family:inherit}
 .start-option h3{font-size:15px;font-weight:600;color:#1a1a18;margin-bottom:3px}
 .start-option p{font-size:12px;color:#888;margin:0}
 .search-box{background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:16px;margin-top:8px;display:none}
-.search-box h3{font-size:14px;font-weight:600;color:#1F4E79;margin-bottom:12px}
+.search-box h3{font-size:14px;font-weight:600;color:#1F4E79;margin-bottom:10px}
 .search-result{border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-top:8px;cursor:pointer}
 .search-result:hover{background:#f0f4f8;border-color:#1F4E79}
 .search-result .sr-title{font-size:14px;font-weight:600;color:#1a1a18}
@@ -101,11 +101,9 @@ textarea{resize:none;font-family:inherit}
       <div><h3>Continuar visita</h3><p>Agregar hallazgos a una visita ya iniciada</p></div>
     </div>
     <div class="search-box" id="search-box">
-      <h3>Buscar visita</h3>
-      <div class="section"><label>Cliente</label><input type="text" id="busq-cliente" placeholder="Nombre del cliente..."></div>
-      <div class="section"><label>Fecha</label><input type="date" id="busq-fecha"></div>
-      <button class="btn btn-dark" onclick="buscarVisitas()" style="margin-top:4px">Buscar</button>
-      <div id="search-results" style="margin-top:12px"></div>
+      <h3>Visitas recientes</h3>
+      <input type="text" id="busq-cliente" placeholder="Filtrar por cliente..." oninput="buscarVisitas()" style="margin-bottom:8px">
+      <div id="search-results"><div style="font-size:13px;color:#888;padding:8px 0">Cargando...</div></div>
     </div>
   </div>
 
@@ -166,7 +164,7 @@ textarea{resize:none;font-family:inherit}
         <div class="stat"><div class="stat-n" id="st-cerr">0</div><div class="stat-l">Con foto después</div></div>
       </div>
       <div class="export-card">
-        <h3>📄 Informe FT-SST-020</h3>
+        <h3>📄 Informes SST</h3>
         <p>Descarga el ZIP con el informe FT-SST-020 y la Matriz ACPM, ambos con fotos incrustadas.</p>
         <button class="btn btn-dark" id="btn-exp" onclick="exportar()" disabled>⬇ Descargar informes .zip</button>
       </div>
@@ -188,21 +186,24 @@ function iniciarNuevaVisita(){
 
 function mostrarBusqueda(){
   const box=document.getElementById('search-box');
-  box.style.display=box.style.display==='block'?'none':'block';
+  const showing=box.style.display==='block';
+  box.style.display=showing?'none':'block';
+  if(!showing) buscarVisitas();
 }
 
 async function buscarVisitas(){
-  const cliente=document.getElementById('busq-cliente').value.trim();
-  const fecha=document.getElementById('busq-fecha').value;
+  const filtro=document.getElementById('busq-cliente').value.trim();
   const el=document.getElementById('search-results');
-  el.innerHTML='<div style="font-size:13px;color:#888;padding:8px 0">Buscando...</div>';
+  el.innerHTML='<div style="font-size:13px;color:#888;padding:8px 0">Cargando...</div>';
   try {
     let url='/api/visitas?';
-    if(cliente) url+='cliente='+encodeURIComponent(cliente)+'&';
-    if(fecha) url+='fecha='+fecha;
+    if(filtro) url+='cliente='+encodeURIComponent(filtro);
     const res=await fetch(url);
     const data=await res.json();
-    if(!data.length){el.innerHTML='<div style="font-size:13px;color:#888;padding:8px 0">No se encontraron visitas.</div>';return;}
+    if(!data.length){
+      el.innerHTML='<div style="font-size:13px;color:#888;padding:8px 0">No hay visitas registradas.</div>';
+      return;
+    }
     el.innerHTML=data.map(v=>`
       <div class="search-result" onclick="continuarVisita(${v.id},'${v.cliente.replace(/'/g,"\\'")}','${v.fecha}','${(v.asesora||'').replace(/'/g,"\\'")}','${(v.participantes||'').replace(/'/g,"\\'")}')">
         <div class="sr-title">${v.cliente}</div>
@@ -210,7 +211,7 @@ async function buscarVisitas(){
         <span class="sr-badge">${v.total_hallazgos||0} hallazgos · ${(v.total_hallazgos||0)-(v.cerrados||0)} pendientes</span>
       </div>
     `).join('');
-  } catch(e){el.innerHTML='<div style="font-size:13px;color:#a32d2d">Error buscando.</div>';}
+  } catch(e){el.innerHTML='<div style="font-size:13px;color:#a32d2d">Error cargando visitas.</div>';}
 }
 
 async function continuarVisita(id,cliente,fecha,asesora,participantes){
@@ -242,7 +243,7 @@ function volverInicio(){
   S.hallazgos=[]; S.visitaId=null; fBefore=null; fAfter=null;
   document.getElementById('start-screen').style.display='block';
   document.getElementById('main-app').style.display='none';
-  document.getElementById('search-results').innerHTML='';
+  document.getElementById('busq-cliente').value='';
   document.getElementById('search-box').style.display='none';
 }
 
