@@ -113,6 +113,75 @@ textarea{resize:none;font-family:inherit}
       <label>Recomendación</label>
       <textarea id="inp-rec" rows="2" placeholder="Acción correctiva sugerida..."></textarea>
     </div>
+    <div class="grid3">
+        <div class="section">
+          <label>Área</label>
+          <select id="inp-area">
+            <option value="">Seleccionar</option>
+            <option>MENSAJERIA</option>
+            <option>DESPACHOS</option>
+            <option>BODEGA</option>
+            <option>MOSTRADOR</option>
+            <option>CALLCENTER</option>
+            <option>LOGISTICA</option>
+            <option>PRODUCCION</option>
+            <option>COMERCIAL</option>
+            <option>GERENCIA</option>
+            <option>ADMINISTRATIVA</option>
+          </select>
+        </div>
+        <div class="section">
+          <label>Factor de riesgo</label>
+          <select id="inp-factor">
+            <option value="">Seleccionar</option>
+            <option>MECÁNICO</option>
+            <option>FÍSICO</option>
+            <option>CARGA FÍSICA</option>
+            <option>QUÍMICO</option>
+            <option>LOCATIVO</option>
+            <option>FÍSICO QUÍMICO</option>
+            <option>ELÉCTRICO</option>
+            <option>TRÁNSITO</option>
+            <option>PÚBLICO</option>
+            <option>BIOLÓGICO</option>
+            <option>TAR</option>
+          </select>
+        </div>
+        <div class="section">
+          <label>Prioridad</label>
+          <select id="inp-prioridad">
+            <option value="">Seleccionar</option>
+            <option>ALTA</option>
+            <option>MEDIA</option>
+            <option>BAJA</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="section">
+          <label>Responsable</label>
+          <input type="text" id="inp-responsable" placeholder="Nombre responsable">
+        </div>
+        <div class="section">
+          <label>Estado</label>
+          <select id="inp-estado">
+            <option value="">Seleccionar</option>
+            <option>EJECUTADO</option>
+            <option>EN PROCESO</option>
+            <option>NO REALIZADO</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="section">
+          <label>Fecha ejecución</label>
+          <input type="date" id="inp-fecha-ejecucion">
+        </div>
+        <div class="section">
+          <label>Fecha seguimiento</label>
+          <input type="date" id="inp-fecha-seguimiento">
+        </div>
+      </div>
     <div class="grid2">
       <div class="photo-col">
         <label>Foto — ANTES</label>
@@ -224,6 +293,12 @@ async function guardar(){
     lugar:document.getElementById('inp-lugar').value.trim(),
     situacion,
     recomendacion:document.getElementById('inp-rec').value.trim(),
+    factor:document.getElementById('inp-factor').value,
+    prioridad:document.getElementById('inp-prioridad').value,
+    responsable:document.getElementById('inp-responsable').value.trim(),
+    estado_acpm:document.getElementById('inp-estado').value,
+    fecha_ejecucion:document.getElementById('inp-fecha-ejecucion').value,
+    fecha_seguimiento:document.getElementById('inp-fecha-seguimiento').value,
     fotoBefore:fBefore,
     fotoAfter:fAfter,
     estado:fAfter?'cerrado':'pendiente'
@@ -265,6 +340,13 @@ async function guardar(){
   document.getElementById('inp-lugar').value='';
   document.getElementById('inp-situacion').value='';
   document.getElementById('inp-rec').value='';
+  document.getElementById('inp-area').value='';
+    document.getElementById('inp-factor').value='';
+    document.getElementById('inp-prioridad').value='';
+    document.getElementById('inp-responsable').value='';
+    document.getElementById('inp-estado').value='';
+    document.getElementById('inp-fecha-ejecucion').value='';
+    document.getElementById('inp-fecha-seguimiento').value='';
   ['antes','despues'].forEach(s=>{
     document.getElementById('img-'+s).style.display='none';
     document.getElementById('box-'+s).querySelector('.ico').style.display='block';
