@@ -56,7 +56,9 @@ def init_db():
                 recomendacion TEXT,
                 foto_antes TEXT,
                 foto_despues TEXT,
-                estado TEXT DEFAULT 'pendiente'
+                estado TEXT DEFAULT 'pendiente',
+                    factor TEXT, prioridad TEXT, responsable TEXT,
+                    estado_acpm TEXT, fecha_ejecucion TEXT, fecha_seguimiento TEXT
             )
         ''')
     else:
