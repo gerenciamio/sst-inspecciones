@@ -260,7 +260,7 @@ def exportar_excel(visita_id):
     ws2.row_dimensions[1].height = 30
     ws2.merge_cells('A2:S2')
     ws2.row_dimensions[2].height = 8
-    headers = [(1,'SEDE'),(2,'MES'),(3,'FECHA'),(4,'FUENTE'),(5,'AREAS'),(6,'DESCRIPCION'),(7,'EVIDENCIA FOTOGRAFICA ANTES'),(8,'PLAN DE ACCION SUGERIDO'),(9,'FACTOR DE RIESGO'),(10,'PRIORIDAD'),(11,'RESPONSABLE'),(12,'FECHA EJECUCION'),(13,'FECHA SEGUIMIENTO'),(17,'REGISTRO FOTOGRAFICO DESPUES'),(18,'ESTADO'),(19,'OBSERVACIONES')]
+    headers = [(1,'SEDE'),(2,'MES'),(3,'FECHA'),(4,'FUENTE'),(5,'AREAS'),(6,'DESCRIPCION'),(7,'EVIDENCIA FOTOGRAFICA ANTES'),(8,'PLAN DE ACCION SUGERIDO'),(9,'FACTOR DE RIESGO'),(10,'PRIORIDAD'),(11,'RESPONSABLE'),(12,'FECHA EJECUCION'),(13,'FECHA SEGUIMIENTO'),(14,'SEGUIMIENTO 1'),(15,'SEGUIMIENTO 2'),(16,'SEGUIMIENTO 3'),(17,'REGISTRO FOTOGRAFICO DESPUES'),(18,'ESTADO'),(19,'OBSERVACIONES')]
     for col, txt in headers:
         cell = ws2.cell(row=3, column=col, value=txt)
         cell.font = Font(name='Arial', bold=True, size=9, color='FFFFFF')
