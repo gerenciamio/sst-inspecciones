@@ -152,7 +152,16 @@ def detalle_visita(visita_id):
     hs = [dict(h) for h in cur.fetchall()]
     cur.close(); conn.close()
     return jsonify({'visita': dict(v), 'hallazgos': hs})
-
+    
+@app.route('/api/hallazgo/<int:hallazgo_id>', methods=['DELETE'])
+def eliminar_hallazgo(hallazgo_id):
+    conn, dbtype = get_db()
+    ph = '%s' if dbtype == 'pg' else '?'
+    cur = conn.cursor()
+    cur.execute(f'DELETE FROM hallazgos WHERE id={ph}', (hallazgo_id,))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True})
+    
 @app.route('/api/hallazgo/<int:hallazgo_id>/despues', methods=['POST'])
 def subir_despues(hallazgo_id):
     data = request.get_json()
