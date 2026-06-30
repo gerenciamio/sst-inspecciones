@@ -363,10 +363,23 @@ function renderList(){
         <div class="foto-mini"><img src="${h.fotoBefore}" alt="Antes"></div>
         <div class="foto-mini">${h.fotoAfter?`<img src="${h.fotoAfter}" alt="Después">`:'<span>Pendiente</span>'}</div>
       </div>
+      <button class="btn btn-outline" style="margin-top:8px;font-size:12px;padding:8px;color:#a32d2d;border-color:#a32d2d" onclick="eliminarHallazgoLocal(${i})">🗑 Eliminar</button>
     </div>
   `).join('');
 }
-
+async function eliminarHallazgoLocal(index){
+  if(!confirm('¿Eliminar este hallazgo?')) return;
+  const h = S.hallazgos[index];
+  if(h.id && S.visitaId){
+    try {
+      await fetch('/api/hallazgo/' + h.id, { method: 'DELETE' });
+    } catch(e){}
+  }
+  S.hallazgos.splice(index, 1);
+  document.getElementById('cnt').textContent = S.hallazgos.length;
+  renderList();
+}
+  
 function updateStats(){
   const total=S.hallazgos.length;
   const cerr=S.hallazgos.filter(h=>h.fotoAfter).length;
