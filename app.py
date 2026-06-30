@@ -132,6 +132,7 @@ def listar_visitas():
     rows = [dict(r) for r in cur.fetchall()]
     cur.close(); conn.close()
     return jsonify(rows)
+
 @app.route('/api/visita/<int:visita_id>')
 def detalle_visita(visita_id):
     conn, dbtype = get_db()
@@ -174,8 +175,7 @@ def b64_to_xl_image(b64_str, max_w=200, max_h=150):
         return XLImage(buf)
     except:
         return None
-
-@app.route('/api/exportar/<int:visita_id>')
+        @app.route('/api/exportar/<int:visita_id>')
 def exportar_excel(visita_id):
     conn, dbtype = get_db()
     ph = '%s' if dbtype == 'pg' else '?'
@@ -198,12 +198,15 @@ def exportar_excel(visita_id):
         cell.value = val
         cell.font = Font(name='Arial', bold=bold, size=sz)
         cell.alignment = Alignment(horizontal=h, vertical=va, wrap_text=True)
-        if fill: cell.fill = PatternFill('solid', fgColor=fill)
-        if border: cell.border = ALL_BORDERS
+        if fill:
+            cell.fill = PatternFill('solid', fgColor=fill)
+        if border:
+            cell.border = ALL_BORDERS
 
+    # ── FT-SST-020 ────────────────────────────────────────────────────────────
     wb1 = openpyxl.Workbook()
     ws1 = wb1.active
-    ws1.title = 'Informe de inspección'
+    ws1.title = 'Informe de inspeccion'
     for col, w in [('A',16),('B',10),('C',12),('D',21),('E',38),('F',38),('G',25),('H',12)]:
         ws1.column_dimensions[col].width = w
     for i, hh in enumerate([14,14,33,33,35], 1):
@@ -218,7 +221,8 @@ def exportar_excel(visita_id):
     apply(ws1['A4'], f'Fecha inspeccion: {v["fecha"]}', bold=True, h='left')
     apply(ws1['E4'], f'PARTICIPANTES: {v["participantes"]}', bold=True, h='left')
     gray = 'D3D1C7'
-    for col, txt in [('A','LUGAR'),('B','SITUACION ENCONTRADA'),('E','FOTO ANTES'),('F','FOTO DESPUES'),('G','RECOMENDACION'),('H','ESTADO')]:
+    for col, txt in [('A','LUGAR'),('B','SITUACION ENCONTRADA'),('E','FOTO ANTES'),
+                     ('F','FOTO DESPUES'),('G','RECOMENDACION'),('H','ESTADO')]:
         apply(ws1[f'{col}5'], txt, bold=True, fill=gray, border=True)
     for merge in ['A1:B3','C1:E1','C2:E3','F1:G1','F2:G2','F3:G3','A4:B4','E4:H4','B5:D5']:
         ws1.merge_cells(merge)
@@ -237,18 +241,25 @@ def exportar_excel(visita_id):
         ws1.merge_cells(f'B{r}:D{r}')
         if h.get('foto_antes'):
             img = b64_to_xl_image(h['foto_antes'])
-            if img: img.anchor = f'E{r}'; ws1.add_image(img)
+            if img:
+                img.anchor = f'E{r}'
+                ws1.add_image(img)
         if h.get('foto_despues'):
             img2 = b64_to_xl_image(h['foto_despues'])
-            if img2: img2.anchor = f'F{r}'; ws1.add_image(img2)
+            if img2:
+                img2.anchor = f'F{r}'
+                ws1.add_image(img2)
     obs_row = 6 + len(hs)
     ws1.row_dimensions[obs_row].height = 80
     ws1.row_dimensions[obs_row+1].height = 50
     apply(ws1[f'A{obs_row}'], 'OBSERVACIONES GENERALES', h='left', va='top')
     ws1.merge_cells(f'A{obs_row}:H{obs_row}')
-    apply(ws1[f'A{obs_row+1}'], 'Firma de quien realizo la inspeccion'+'  '*20+'Firma de quien recibio la inspeccion', sz=11, h='center')
+    apply(ws1[f'A{obs_row+1}'],
+          'Firma de quien realizo la inspeccion' + ' '*30 + 'Firma de quien recibio la inspeccion',
+          sz=11, h='center')
     ws1.merge_cells(f'A{obs_row+1}:H{obs_row+1}')
 
+    # ── MATRIZ ACPM ───────────────────────────────────────────────────────────
     wb2 = openpyxl.Workbook()
     ws2 = wb2.active
     ws2.title = 'BASE DE DATOS'
@@ -260,7 +271,14 @@ def exportar_excel(visita_id):
     ws2.row_dimensions[1].height = 30
     ws2.merge_cells('A2:S2')
     ws2.row_dimensions[2].height = 8
-    headers = [(1,'SEDE'),(2,'MES'),(3,'FECHA'),(4,'FUENTE'),(5,'AREAS'),(6,'DESCRIPCION'),(7,'EVIDENCIA FOTOGRAFICA ANTES'),(8,'PLAN DE ACCION SUGERIDO'),(9,'FACTOR DE RIESGO'),(10,'PRIORIDAD'),(11,'RESPONSABLE'),(12,'FECHA EJECUCION'),(13,'FECHA SEGUIMIENTO'),(14,'SEGUIMIENTO 1'),(15,'SEGUIMIENTO 2'),(16,'SEGUIMIENTO 3'),(17,'REGISTRO FOTOGRAFICO DESPUES'),(18,'ESTADO'),(19,'OBSERVACIONES')]
+    headers = [
+        (1,'SEDE'),(2,'MES'),(3,'FECHA'),(4,'FUENTE'),(5,'AREAS'),(6,'DESCRIPCION'),
+        (7,'EVIDENCIA FOTOGRAFICA ANTES'),(8,'PLAN DE ACCION SUGERIDO'),
+        (9,'FACTOR DE RIESGO'),(10,'PRIORIDAD'),(11,'RESPONSABLE'),
+        (12,'FECHA EJECUCION'),(13,'FECHA SEGUIMIENTO'),
+        (14,'SEGUIMIENTO 1'),(15,'SEGUIMIENTO 2'),(16,'SEGUIMIENTO 3'),
+        (17,'REGISTRO FOTOGRAFICO DESPUES'),(18,'ESTADO'),(19,'OBSERVACIONES')
+    ]
     for col, txt in headers:
         cell = ws2.cell(row=3, column=col, value=txt)
         cell.font = Font(name='Arial', bold=True, size=9, color='FFFFFF')
@@ -269,9 +287,11 @@ def exportar_excel(visita_id):
         cell.border = ALL_BORDERS
     ws2.row_dimensions[3].height = 35
     ws2.freeze_panes = 'A4'
-    for col, w in {1:14,2:10,3:12,4:14,5:12,6:30,7:22,8:35,9:14,10:12,11:18,12:14,13:14,17:22,18:12,19:20}.items():
+    for col, w in {1:14,2:10,3:12,4:14,5:12,6:30,7:22,8:35,9:14,10:12,
+                   11:18,12:14,13:14,14:14,15:14,16:14,17:22,18:12,19:20}.items():
         ws2.column_dimensions[openpyxl.utils.get_column_letter(col)].width = w
-    mes_map = {1:'Enero',2:'Febrero',3:'Marzo',4:'Abril',5:'Mayo',6:'Junio',7:'Julio',8:'Agosto',9:'Septiembre',10:'Octubre',11:'Noviembre',12:'Diciembre'}
+    mes_map = {1:'Enero',2:'Febrero',3:'Marzo',4:'Abril',5:'Mayo',6:'Junio',
+               7:'Julio',8:'Agosto',9:'Septiembre',10:'Octubre',11:'Noviembre',12:'Diciembre'}
     try:
         mes = mes_map.get(int(v['fecha'].split('-')[1]), '')
     except:
@@ -280,11 +300,19 @@ def exportar_excel(visita_id):
     for row_idx, h in enumerate(hs, 4):
         ws2.row_dimensions[row_idx].height = 120
         fill = alt_fill if row_idx % 2 == 0 else PatternFill()
-        for col, val in [(1,v['cliente']),(2,mes),(3,v['fecha']),(4,'Inspeccion de Seguridad'),(5,h.get('lugar','')),(6,h.get('situacion','')),(8,h.get('recomendacion','')),(9,h.get('factor','')),(10,h.get('prioridad','')),(11,h.get('responsable','')),(12,h.get('fecha_ejecucion','')),(13,h.get('fecha_seguimiento','')),(18,h.get('estado_acpm','')),(19,'')]:
+        for col, val in [
+            (1,v['cliente']),(2,mes),(3,v['fecha']),(4,'Inspeccion de Seguridad'),
+            (5,h.get('lugar','')),(6,h.get('situacion','')),
+            (8,h.get('recomendacion','')),(9,h.get('factor','')),
+            (10,h.get('prioridad','')),(11,h.get('responsable','')),
+            (12,h.get('fecha_ejecucion','')),(13,h.get('fecha_seguimiento','')),
+            (14,''),(15,''),(16,''),(18,h.get('estado_acpm','')),(19,'')
+        ]:
             cell = ws2.cell(row=row_idx, column=col, value=val)
             cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
             cell.border = ALL_BORDERS
-            if fill.fill_type: cell.fill = fill
+            if fill.fill_type:
+                cell.fill = fill
         for col in [7, 17]:
             ws2.cell(row=row_idx, column=col).border = ALL_BORDERS
         if h.get('foto_antes'):
@@ -297,9 +325,15 @@ def exportar_excel(visita_id):
             if img2:
                 img2.anchor = openpyxl.utils.get_column_letter(17) + str(row_idx)
                 ws2.add_image(img2)
+
+    # ── ZIP ───────────────────────────────────────────────────────────────────
     import zipfile
-    buf1 = io.BytesIO(); wb1.save(buf1); buf1.seek(0)
-    buf2 = io.BytesIO(); wb2.save(buf2); buf2.seek(0)
+    buf1 = io.BytesIO()
+    wb1.save(buf1)
+    buf1.seek(0)
+    buf2 = io.BytesIO()
+    wb2.save(buf2)
+    buf2.seek(0)
     zip_buf = io.BytesIO()
     fname_base = f"{v['cliente'].replace(' ','_')}_{v['fecha']}"
     with zipfile.ZipFile(zip_buf, 'w') as zf:
