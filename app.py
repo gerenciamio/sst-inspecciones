@@ -175,7 +175,7 @@ def b64_to_xl_image(b64_str, max_w=200, max_h=150):
         return XLImage(buf)
     except:
         return None
-        @app.route('/api/exportar/<int:visita_id>')
+@app.route('/api/exportar/<int:visita_id>')
 def exportar_excel(visita_id):
     conn, dbtype = get_db()
     ph = '%s' if dbtype == 'pg' else '?'
