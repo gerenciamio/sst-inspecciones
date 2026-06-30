@@ -147,10 +147,10 @@ textarea{resize:none;font-family:inherit}
       </div>
       <div class="grid2">
         <div class="photo-col"><label>Foto — ANTES</label>
-          <div class="photo-box" id="box-antes"><div class="ico">📷</div><span>Tomar o subir</span><img id="img-antes" alt="Antes"><input type="file" accept="image/*" capture="environment" onchange="previewFoto(this,'antes')"></div>
+          <div class="photo-box" id="box-antes"><div class="ico">📷</div><span>Tomar o subir</span><img id="img-antes" alt="Antes"><input type="file" accept="image/*" onchange="previewFoto(this,'antes')"></div>
         </div>
         <div class="photo-col"><label>Foto — DESPUÉS <span style="font-weight:400;font-size:10px">(si ya está)</span></label>
-          <div class="photo-box" id="box-despues"><div class="ico">📷</div><span>Opcional</span><img id="img-despues" alt="Después"><input type="file" accept="image/*" capture="environment" onchange="previewFoto(this,'despues')"></div>
+          <div class="photo-box" id="box-despues"><div class="ico">📷</div><span>Opcional</span><img id="img-despues" alt="Después"><input type="file" accept="image/*" onchange="previewFoto(this,'despues')"></div>
         </div>
       </div>
       <button class="btn btn-dark" onclick="guardar()">+ Guardar hallazgo</button>
