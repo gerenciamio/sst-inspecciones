@@ -83,12 +83,11 @@ tr:hover td{background:#f8fafc}
       </div>
       <div id="visitas-table"><div class="loader"><span class="spinner"></span>Cargando...</div></div>
     </div>
-    <!-- Detail panel -->
     <div class="detail-panel" id="detail-panel">
       <div class="detail-header">
         <div class="detail-title" id="detail-title">Detalle de visita</div>
         <div class="btn-row">
-          <button class="btn btn-success btn-sm" onclick="exportar()">⬇ Descargar Excel</button>
+          <button class="btn btn-success btn-sm" onclick="exportar()">⬇ Descargar informes .zip</button>
           <button class="btn btn-outline btn-sm" onclick="cerrarDetalle()">✕ Cerrar</button>
         </div>
       </div>
@@ -115,26 +114,21 @@ async function cargarVisitas() {
   const fecha = document.getElementById('busq-fecha').value;
   const el = document.getElementById('visitas-table');
   el.innerHTML = '<div class="loader"><span class="spinner"></span>Cargando...</div>';
-
   try {
     let url = '/api/visitas?';
     if (cliente) url += 'cliente=' + encodeURIComponent(cliente) + '&';
     if (fecha) url += 'fecha=' + fecha;
     const res = await fetch(url);
     const data = await res.json();
-
-    // Update stats
     const totalH = data.reduce((s,v) => s + (v.total_hallazgos||0), 0);
     const totalP = data.reduce((s,v) => s + ((v.total_hallazgos||0)-(v.cerrados||0)), 0);
     document.getElementById('st-visitas').textContent = data.length;
     document.getElementById('st-hallazgos').textContent = totalH;
     document.getElementById('st-pendientes').textContent = totalP;
-
     if (!data.length) {
-      el.innerHTML = '<div class="empty">No se encontraron visitas. Ajusta los filtros de búsqueda.</div>';
+      el.innerHTML = '<div class="empty">No se encontraron visitas.</div>';
       return;
     }
-
     el.innerHTML = `
       <table>
         <thead><tr>
@@ -176,15 +170,11 @@ async function verDetalle(id, cliente, fecha, asesora) {
   const panel = document.getElementById('detail-panel');
   panel.classList.add('show');
   document.getElementById('detail-title').textContent = `📋 ${cliente} — ${fecha}`;
-
   const link = window.location.origin + '/cliente?visita=' + id;
   document.getElementById('client-link').textContent = link;
-
   const el = document.getElementById('hallazgos-list');
   el.innerHTML = '<div class="loader"><span class="spinner"></span>Cargando hallazgos...</div>';
-
   panel.scrollIntoView({behavior:'smooth'});
-
   try {
     const res = await fetch('/api/visita/' + id);
     const data = await res.json();
@@ -249,13 +239,13 @@ async function exportar() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `FT-SST-020_${visitaActual.cliente.replace(/\s/g,'_')}_${visitaActual.fecha}.xlsx`;
+    a.download = `Informes_SST_${visitaActual.cliente.replace(/\s/g,'_')}_${visitaActual.fecha}.zip`;
     a.click();
     URL.revokeObjectURL(url);
   } catch(e) {
-    alert('Error generando el Excel.');
+    alert('Error generando los informes.');
   } finally {
-    btn.disabled = false; btn.textContent = '⬇ Descargar Excel';
+    btn.disabled = false; btn.textContent = '⬇ Descargar informes .zip';
   }
 }
 
