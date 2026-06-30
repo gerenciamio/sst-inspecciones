@@ -191,6 +191,7 @@ async function verDetalle(id, cliente, fecha, asesora) {
         <span class="badge ${h.estado==='cerrado'?'b-done':'b-pend'}" style="margin-top:6px">
           ${h.estado==='cerrado'?'✓ Foto después recibida':'Pendiente foto después'}
         </span>
+        <button class="btn btn-outline btn-sm" style="margin-top:8px;color:#a32d2d;border-color:#a32d2d" onclick="eliminarHallazgo(${h.id})">🗑 Eliminar hallazgo</button>
         <div class="foto-row">
           <div>
             <div style="font-size:10px;color:#94a3b8;margin-bottom:4px;font-weight:600">ANTES</div>
@@ -207,7 +208,17 @@ async function verDetalle(id, cliente, fecha, asesora) {
     el.innerHTML = '<div class="empty">Error cargando hallazgos.</div>';
   }
 }
-
+async function eliminarHallazgo(hallazgoId) {
+  if (!confirm('¿Estás seguro de eliminar este hallazgo? Esta acción no se puede deshacer.')) return;
+  try {
+    await fetch('/api/hallazgo/' + hallazgoId, { method: 'DELETE' });
+    if (visitaActual) verDetalle(visitaActual.id, visitaActual.cliente, visitaActual.fecha, visitaActual.asesora);
+    cargarVisitas();
+  } catch(e) {
+    alert('Error eliminando el hallazgo.');
+  }
+}
+  
 function cerrarDetalle() {
   document.getElementById('detail-panel').classList.remove('show');
   visitaActual = null;
