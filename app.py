@@ -152,7 +152,17 @@ def detalle_visita(visita_id):
     hs = [dict(h) for h in cur.fetchall()]
     cur.close(); conn.close()
     return jsonify({'visita': dict(v), 'hallazgos': hs})
-    
+
+@app.route('/api/visita/<int:visita_id>', methods=['DELETE'])
+def eliminar_visita(visita_id):
+    conn, dbtype = get_db()
+    ph = '%s' if dbtype == 'pg' else '?'
+    cur = conn.cursor()
+    cur.execute(f'DELETE FROM hallazgos WHERE visita_id={ph}', (visita_id,))
+    cur.execute(f'DELETE FROM visitas WHERE id={ph}', (visita_id,))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True})
+
 @app.route('/api/hallazgo/<int:hallazgo_id>', methods=['DELETE'])
 def eliminar_hallazgo(hallazgo_id):
     conn, dbtype = get_db()
@@ -161,7 +171,7 @@ def eliminar_hallazgo(hallazgo_id):
     cur.execute(f'DELETE FROM hallazgos WHERE id={ph}', (hallazgo_id,))
     conn.commit(); cur.close(); conn.close()
     return jsonify({'ok': True})
-    
+
 @app.route('/api/hallazgo/<int:hallazgo_id>/despues', methods=['POST'])
 def subir_despues(hallazgo_id):
     data = request.get_json()
@@ -184,6 +194,7 @@ def b64_to_xl_image(b64_str, max_w=200, max_h=150):
         return XLImage(buf)
     except:
         return None
+
 @app.route('/api/exportar/<int:visita_id>')
 def exportar_excel(visita_id):
     conn, dbtype = get_db()
@@ -212,7 +223,6 @@ def exportar_excel(visita_id):
         if border:
             cell.border = ALL_BORDERS
 
-    # ── FT-SST-020 ────────────────────────────────────────────────────────────
     wb1 = openpyxl.Workbook()
     ws1 = wb1.active
     ws1.title = 'Informe de inspeccion'
@@ -268,7 +278,6 @@ def exportar_excel(visita_id):
           sz=11, h='center')
     ws1.merge_cells(f'A{obs_row+1}:H{obs_row+1}')
 
-    # ── MATRIZ ACPM ───────────────────────────────────────────────────────────
     wb2 = openpyxl.Workbook()
     ws2 = wb2.active
     ws2.title = 'BASE DE DATOS'
@@ -335,14 +344,9 @@ def exportar_excel(visita_id):
                 img2.anchor = openpyxl.utils.get_column_letter(17) + str(row_idx)
                 ws2.add_image(img2)
 
-    # ── ZIP ───────────────────────────────────────────────────────────────────
     import zipfile
-    buf1 = io.BytesIO()
-    wb1.save(buf1)
-    buf1.seek(0)
-    buf2 = io.BytesIO()
-    wb2.save(buf2)
-    buf2.seek(0)
+    buf1 = io.BytesIO(); wb1.save(buf1); buf1.seek(0)
+    buf2 = io.BytesIO(); wb2.save(buf2); buf2.seek(0)
     zip_buf = io.BytesIO()
     fname_base = f"{v['cliente'].replace(' ','_')}_{v['fecha']}"
     with zipfile.ZipFile(zip_buf, 'w') as zf:
