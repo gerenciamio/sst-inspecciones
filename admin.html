@@ -30,6 +30,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .btn-whatsapp{background:#25D366;color:#fff}
 .btn-sm{padding:7px 12px;font-size:12px}
 .btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-danger{background:#fff;color:#a32d2d;border:1.5px solid #a32d2d;}
 .btn-danger{background:#fff;color:#a32d2d;border:1.5px solid #a32d2d}
 table{width:100%;border-collapse:collapse}
 th{text-align:left;padding:10px 12px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e2e8f0;background:#f8fafc}
@@ -121,7 +122,8 @@ async function cargarVisitas() {
     el.innerHTML = `<table><thead><tr><th>Cliente</th><th>Fecha</th><th>Asesora</th><th>Hallazgos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${data.map(v => {
       const pend = (v.total_hallazgos||0) - (v.cerrados||0);
       const done = v.cerrados||0;
-      return `<tr><td><strong>${v.cliente}</strong></td><td>${v.fecha}</td><td>${v.asesora||'—'}</td><td><span class="badge b-blue">${v.total_hallazgos||0} hallazgos</span></td><td>${done > 0 ? `<span class="badge b-done">✓ ${done} cerrados</span> ` : ''}${pend > 0 ? `<span class="badge b-pend">${pend} pendientes</span>` : ''}${pend === 0 && done > 0 ? '<span class="badge b-done">✓ Completo</span>' : ''}</td><td><button class="btn btn-primary btn-sm" onclick="verDetalle(${v.id}, '${v.cliente.replace(/'/g,"\\'")}', '${v.fecha}', '${(v.asesora||'').replace(/'/g,"\\'")}')">Ver / Enviar link</button></td></tr>`;
+      return `<tr><td><strong>${v.cliente}</strong></td><td>${v.fecha}</td><td>${v.asesora||'—'}</td><td><span class="badge b-blue">${v.total_hallazgos||0} hallazgos</span></td><td>${done > 0 ? `<span class="badge b-done">✓ ${done} cerrados</span> ` : ''}${pend > 0 ? `<span class="badge b-pend">${pend} pendientes</span>` : ''}${pend === 0 && done > 0 ? '<span class="badge b-done">✓ Completo</span>' : ''}</td><td><button class="btn btn-primary btn-sm" onclick="verDetalle(${v.id}, '${v.cliente.replace(/'/g,"\\'")}', '${v.fecha}', '${(v.asesora||'').replace(/'/g,"\\'")}')">Ver / Enviar link</button>
+                <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="confirmarEliminarVisita(${v.id}, '${v.cliente.replace(/'/g,\"\\'\")}')">🗑 Eliminar</button></td></tr>`;
     }).join('')}</tbody></table>`;
   } catch(e) { el.innerHTML = '<div class="empty">Error cargando visitas.</div>'; }
 }
@@ -151,6 +153,17 @@ function cerrarDetalle() { document.getElementById('detail-panel').classList.rem
 function copiarLink() { const link = document.getElementById('client-link').textContent; navigator.clipboard.writeText(link).then(() => { const btn = event.target; btn.textContent = '✓ Copiado'; setTimeout(() => btn.textContent = '📋 Copiar link', 2000); }); }
 function enviarWhatsApp() { if (!visitaActual) return; const link = document.getElementById('client-link').textContent; const msg = `Hola! 👋 Le enviamos el link para completar el informe de inspección SST de *${visitaActual.cliente}* (${visitaActual.fecha}).\n\nPor favor ingrese y suba las fotos del *después* de cada hallazgo corregido:\n\n${link}\n\nGracias! 🛡`; window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank'); }
 async function exportar() { if (!visitaActual) return; const btn = event.target; btn.disabled = true; btn.textContent = 'Generando...'; try { const res = await fetch('/api/exportar/' + visitaActual.id); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `Informes_SST_${visitaActual.cliente.replace(/\s/g,'_')}_${visitaActual.fecha}.zip`; a.click(); URL.revokeObjectURL(url); } catch(e) { alert('Error generando los informes.'); } finally { btn.disabled = false; btn.textContent = '⬇ Descargar informes .zip'; } }
+async function confirmarEliminarVisita(id, cliente) {
+  if (!confirm('¿Eliminar la visita de "' + cliente + '" y todos sus hallazgos? Esta acción no se puede deshacer.')) return;
+  try {
+    const res = await fetch('/api/visita/' + id, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.ok) {
+      if (visitaActual && visitaActual.id === id) cerrarDetalle();
+      cargarVisitas();
+    }
+  } catch(e) { alert('Error eliminando la visita.'); }
+}
 async function confirmarEliminarVisita(id, cliente) {
   if (!confirm('¿Eliminar la visita de "' + cliente + '" y todos sus hallazgos? Esta acción no se puede deshacer.')) return;
   try {
