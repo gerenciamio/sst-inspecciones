@@ -163,6 +163,27 @@ def eliminar_visita(visita_id):
     conn.commit(); cur.close(); conn.close()
     return jsonify({'ok': True})
 
+
+@app.route('/api/hallazgo/<int:hallazgo_id>', methods=['PUT'])
+def editar_hallazgo(hallazgo_id):
+    data = request.get_json()
+    conn, dbtype = get_db()
+    ph = '%s' if dbtype == 'pg' else '?'
+    cur = conn.cursor()
+    cur.execute(f"""UPDATE hallazgos SET
+        lugar={ph}, situacion={ph}, recomendacion={ph},
+        foto_antes={ph}, foto_despues={ph}, estado={ph},
+        factor={ph}, prioridad={ph}, responsable={ph},
+        estado_acpm={ph}, fecha_ejecucion={ph}, fecha_seguimiento={ph}
+        WHERE id={ph}""",
+        (data.get('lugar',''), data.get('situacion',''), data.get('recomendacion',''),
+         data.get('fotoBefore',''), data.get('fotoAfter',''), data.get('estado','pendiente'),
+         data.get('factor',''), data.get('prioridad',''), data.get('responsable',''),
+         data.get('estado_acpm',''), data.get('fecha_ejecucion',''), data.get('fecha_seguimiento',''),
+         hallazgo_id))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True})
+
 @app.route('/api/hallazgo/<int:hallazgo_id>', methods=['DELETE'])
 def eliminar_hallazgo(hallazgo_id):
     conn, dbtype = get_db()

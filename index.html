@@ -79,6 +79,8 @@ textarea{resize:none;font-family:inherit}
 .search-result .sr-title{font-size:14px;font-weight:600;color:#1a1a18}
 .search-result .sr-sub{font-size:12px;color:#888;margin-top:2px}
 .search-result .sr-badge{font-size:11px;padding:2px 8px;border-radius:20px;background:#faeeda;color:#854f0b;margin-top:5px;display:inline-block}
+.btn-edit{background:#f0f4f8;color:#2d6a1f;border:1px solid #2d6a1f;margin-top:6px;font-size:12px;padding:8px}
+.edit-banner{background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:10px 14px;font-size:13px;color:#856404;margin-bottom:14px;display:none}
 </style>
 </head>
 <body>
@@ -110,6 +112,7 @@ textarea{resize:none;font-family:inherit}
       <button class="tab" onclick="showTab('exportar')">📥 Exportar</button>
     </div>
     <div id="tab-registro" class="content">
+      <div id="edit-banner" class="edit-banner">✏️ Editando hallazgo — modifica los campos y toca "Actualizar hallazgo"</div>
       <div id="visit-saved-banner" class="visit-saved"></div>
       <div class="section"><label>Cliente / Empresa</label><input type="text" id="inp-cliente" placeholder="Nombre del cliente" oninput="updateSummary()"></div>
       <div class="grid2">
@@ -149,7 +152,7 @@ textarea{resize:none;font-family:inherit}
           <div class="photo-box" id="box-despues"><div class="ico">📷</div><span>Opcional</span><img id="img-despues" alt="Después"><input type="file" accept="image/*" onchange="previewFoto(this,'despues')"></div>
         </div>
       </div>
-      <button class="btn btn-dark" onclick="guardar()">+ Guardar hallazgo</button>
+      <button class="btn btn-dark" id="btn-guardar" onclick="guardar()">+ Guardar hallazgo</button>
       <button class="btn btn-secondary" onclick="volverInicio()" style="font-size:13px;padding:10px">← Cambiar visita</button>
       <div class="msg" id="msg"></div>
     </div>
@@ -172,6 +175,42 @@ textarea{resize:none;font-family:inherit}
 <script>
 const S = {hallazgos:[], visitaId: null};
 let fBefore=null, fAfter=null;
+let editIndex=null;
+
+function editarHallazgo(i){
+  editIndex=i;
+  const h=S.hallazgos[i];
+  // Pre-cargar todos los campos
+  document.getElementById('inp-area').value=h.lugar||'';
+  document.getElementById('inp-factor').value=h.factor||'';
+  document.getElementById('inp-situacion').value=h.situacion||'';
+  document.getElementById('inp-rec').value=h.recomendacion||'';
+  document.getElementById('inp-prioridad').value=h.prioridad||'';
+  document.getElementById('inp-responsable').value=h.responsable||'';
+  document.getElementById('inp-estado').value=h.estado_acpm||'';
+  document.getElementById('inp-fecha-ejecucion').value=h.fecha_ejecucion||'';
+  document.getElementById('inp-fecha-seguimiento').value=h.fecha_seguimiento||'';
+  // Pre-cargar foto antes
+  if(h.fotoBefore){
+    fBefore=h.fotoBefore;
+    document.getElementById('img-antes').src=h.fotoBefore;
+    document.getElementById('img-antes').style.display='block';
+    document.getElementById('box-antes').querySelector('.ico').style.display='none';
+    document.getElementById('box-antes').querySelector('span').style.display='none';
+  }
+  if(h.fotoAfter){
+    fAfter=h.fotoAfter;
+    document.getElementById('img-despues').src=h.fotoAfter;
+    document.getElementById('img-despues').style.display='block';
+    document.getElementById('box-despues').querySelector('.ico').style.display='none';
+    document.getElementById('box-despues').querySelector('span').style.display='none';
+  }
+  // Cambiar botón y mostrar banner
+  document.getElementById('btn-guardar').textContent='✓ Actualizar hallazgo';
+  document.getElementById('edit-banner').style.display='block';
+  showTab('registro');
+  window.scrollTo(0,0);
+}
 function iniciarNuevaVisita(){document.getElementById('start-screen').style.display='none';document.getElementById('main-app').style.display='block';document.getElementById('inp-fecha').valueAsDate=new Date();updateSummary();}
 function mostrarBusqueda(){const box=document.getElementById('search-box');const showing=box.style.display==='block';box.style.display=showing?'none':'block';if(!showing) buscarVisitas();}
 async function buscarVisitas(){const filtro=document.getElementById('busq-cliente').value.trim();const el=document.getElementById('search-results');el.innerHTML='<div style="font-size:13px;color:#888;padding:8px 0">Cargando...</div>';try{let url='/api/visitas?';if(filtro) url+='cliente='+encodeURIComponent(filtro);const res=await fetch(url);const data=await res.json();if(!data.length){el.innerHTML='<div style="font-size:13px;color:#888;padding:8px 0">No hay visitas registradas.</div>';return;}el.innerHTML=data.map(v=>`<div class="search-result" onclick="continuarVisita(${v.id},'${v.cliente.replace(/'/g,"\\'")}','${v.fecha}','${(v.asesora||'').replace(/'/g,"\\'")}','${(v.participantes||'').replace(/'/g,"\\'")}')"><div class="sr-title">${v.cliente}</div><div class="sr-sub">${v.fecha}${v.asesora?' · '+v.asesora:''}</div><span class="sr-badge">${v.total_hallazgos||0} hallazgos · ${(v.total_hallazgos||0)-(v.cerrados||0)} pendientes</span></div>`).join('');}catch(e){el.innerHTML='<div style="font-size:13px;color:#a32d2d">Error cargando visitas.</div>';}}
@@ -182,8 +221,42 @@ function updateSummary(){const c=document.getElementById('inp-cliente').value;co
 function fmtFecha(d){if(!d) return '';const [y,m,day]=d.split('-');return `${day}/${m}/${y}`;}
 function previewFoto(input,side){const file=input.files[0];if(!file) return;const reader=new FileReader();reader.onload=e=>{if(side==='antes'){fBefore=e.target.result;document.getElementById('img-antes').src=e.target.result;document.getElementById('img-antes').style.display='block';document.getElementById('box-antes').querySelector('.ico').style.display='none';document.getElementById('box-antes').querySelector('span').style.display='none';}else{fAfter=e.target.result;document.getElementById('img-despues').src=e.target.result;document.getElementById('img-despues').style.display='block';document.getElementById('box-despues').querySelector('.ico').style.display='none';document.getElementById('box-despues').querySelector('span').style.display='none';}};reader.readAsDataURL(file);}
 function showMsg(txt,ok){const m=document.getElementById('msg');m.className='msg '+(ok?'ok':'err');m.textContent=txt;}
-async function guardar(){const cliente=document.getElementById('inp-cliente').value.trim();const fecha=document.getElementById('inp-fecha').value;const situacion=document.getElementById('inp-situacion').value.trim();if(!cliente){showMsg('Ingresa el nombre del cliente.',false);return;}if(!fecha){showMsg('Selecciona la fecha.',false);return;}if(!situacion){showMsg('Describe la situación encontrada.',false);return;}if(!fBefore){showMsg('Agrega la foto Antes.',false);return;}const hallazgo={lugar:document.getElementById('inp-area').value,situacion,recomendacion:document.getElementById('inp-rec').value.trim(),factor:document.getElementById('inp-factor').value,prioridad:document.getElementById('inp-prioridad').value,responsable:document.getElementById('inp-responsable').value.trim(),estado_acpm:document.getElementById('inp-estado').value,fecha_ejecucion:document.getElementById('inp-fecha-ejecucion').value,fecha_seguimiento:document.getElementById('inp-fecha-seguimiento').value,fotoBefore:fBefore,fotoAfter:fAfter,estado:fAfter?'cerrado':'pendiente'};try{if(!S.visitaId){const res=await fetch('/api/visita',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cliente,fecha,asesora:document.getElementById('inp-asesora').value.trim(),participantes:document.getElementById('inp-participantes').value.trim(),hallazgos:[hallazgo]})});const data=await res.json();S.visitaId=data.visita_id;const banner=document.getElementById('visit-saved-banner');banner.innerHTML=`✓ Visita guardada (ID: ${S.visitaId})`;banner.style.display='block';}else{await fetch(`/api/visita/${S.visitaId}/hallazgo`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(hallazgo)});}}catch(e){showMsg('Sin conexión — intenta de nuevo.',false);return;}hallazgo.id=Date.now();S.hallazgos.push(hallazgo);['inp-area','inp-factor','inp-prioridad','inp-estado'].forEach(id=>document.getElementById(id).value='');['inp-situacion','inp-rec','inp-responsable'].forEach(id=>document.getElementById(id).value='');['inp-fecha-ejecucion','inp-fecha-seguimiento'].forEach(id=>document.getElementById(id).value='');['antes','despues'].forEach(s=>{document.getElementById('img-'+s).style.display='none';document.getElementById('box-'+s).querySelector('.ico').style.display='block';document.getElementById('box-'+s).querySelector('span').style.display='block';});fBefore=null;fAfter=null;document.getElementById('cnt').textContent=S.hallazgos.length;showMsg(`✓ Hallazgo #${S.hallazgos.length} guardado`,true);setTimeout(()=>{document.getElementById('msg').className='msg'},3000);}
-function renderList(){const el=document.getElementById('list');if(!S.hallazgos.length){el.innerHTML='<div class="empty"><div class="eico">📋</div><p>Aún no hay hallazgos.</p></div>';return;}el.innerHTML=S.hallazgos.map((h,i)=>`<div class="card"><div class="num">Hallazgo #${i+1}${h.lugar?' · '+h.lugar:''}</div><div class="title">${h.situacion}</div>${h.recomendacion?`<div class="sub">↳ ${h.recomendacion}</div>`:''}${h.factor||h.prioridad?`<div class="sub" style="margin-top:3px">${[h.factor,h.prioridad,h.responsable].filter(Boolean).join(' · ')}</div>`:''}<span class="sbadge ${h.fotoAfter?'s-c':'s-p'}">${h.fotoAfter?'✓ Foto después lista':'Pendiente foto después'}</span><div class="foto-row"><div class="foto-mini"><img src="${h.fotoBefore}" alt="Antes"></div><div class="foto-mini">${h.fotoAfter?`<img src="${h.fotoAfter}" alt="Después">`:'<span>Pendiente</span>'}</div></div><button class="btn btn-outline" style="margin-top:8px;font-size:12px;padding:8px;color:#a32d2d;border-color:#a32d2d" onclick="eliminarHallazgoLocal(${i})">🗑 Eliminar</button></div>`).join('');}
+async function guardar(){
+  // Modo edición
+  if(editIndex!==null){
+    const h=S.hallazgos[editIndex];
+    const payload={
+      lugar:document.getElementById('inp-area').value,
+      situacion:document.getElementById('inp-situacion').value.trim(),
+      recomendacion:document.getElementById('inp-rec').value.trim(),
+      factor:document.getElementById('inp-factor').value,
+      prioridad:document.getElementById('inp-prioridad').value,
+      responsable:document.getElementById('inp-responsable').value.trim(),
+      estado_acpm:document.getElementById('inp-estado').value,
+      fecha_ejecucion:document.getElementById('inp-fecha-ejecucion').value,
+      fecha_seguimiento:document.getElementById('inp-fecha-seguimiento').value,
+      fotoBefore:fBefore,fotoAfter:fAfter,
+      estado:fAfter?'cerrado':'pendiente'
+    };
+    if(!payload.situacion){showMsg('Describe la situación encontrada.',false);return;}
+    try{
+      await fetch('/api/hallazgo/'+h.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    }catch(e){showMsg('Sin conexión — intenta de nuevo.',false);return;}
+    Object.assign(S.hallazgos[editIndex],{lugar:payload.lugar,situacion:payload.situacion,recomendacion:payload.recomendacion,factor:payload.factor,prioridad:payload.prioridad,responsable:payload.responsable,estado_acpm:payload.estado_acpm,fecha_ejecucion:payload.fecha_ejecucion,fecha_seguimiento:payload.fecha_seguimiento,fotoBefore:payload.fotoBefore,fotoAfter:payload.fotoAfter,estado:payload.estado});
+    editIndex=null;
+    fBefore=null;fAfter=null;
+    document.getElementById('btn-guardar').textContent='+ Guardar hallazgo';
+    document.getElementById('edit-banner').style.display='none';
+    ['inp-area','inp-factor','inp-prioridad','inp-estado'].forEach(id=>document.getElementById(id).value='');
+    ['inp-situacion','inp-rec','inp-responsable'].forEach(id=>document.getElementById(id).value='');
+    ['inp-fecha-ejecucion','inp-fecha-seguimiento'].forEach(id=>document.getElementById(id).value='');
+    ['antes','despues'].forEach(s=>{document.getElementById('img-'+s).style.display='none';document.getElementById('box-'+s).querySelector('.ico').style.display='block';document.getElementById('box-'+s).querySelector('span').style.display='block';});
+    showMsg('✓ Hallazgo actualizado',true);
+    setTimeout(()=>{document.getElementById('msg').className='msg';showTab('hallazgos');},1500);
+    return;
+  }
+  // Modo normalconst cliente=document.getElementById('inp-cliente').value.trim();const fecha=document.getElementById('inp-fecha').value;const situacion=document.getElementById('inp-situacion').value.trim();if(!cliente){showMsg('Ingresa el nombre del cliente.',false);return;}if(!fecha){showMsg('Selecciona la fecha.',false);return;}if(!situacion){showMsg('Describe la situación encontrada.',false);return;}if(!fBefore){showMsg('Agrega la foto Antes.',false);return;}const hallazgo={lugar:document.getElementById('inp-area').value,situacion,recomendacion:document.getElementById('inp-rec').value.trim(),factor:document.getElementById('inp-factor').value,prioridad:document.getElementById('inp-prioridad').value,responsable:document.getElementById('inp-responsable').value.trim(),estado_acpm:document.getElementById('inp-estado').value,fecha_ejecucion:document.getElementById('inp-fecha-ejecucion').value,fecha_seguimiento:document.getElementById('inp-fecha-seguimiento').value,fotoBefore:fBefore,fotoAfter:fAfter,estado:fAfter?'cerrado':'pendiente'};try{if(!S.visitaId){const res=await fetch('/api/visita',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cliente,fecha,asesora:document.getElementById('inp-asesora').value.trim(),participantes:document.getElementById('inp-participantes').value.trim(),hallazgos:[hallazgo]})});const data=await res.json();S.visitaId=data.visita_id;const banner=document.getElementById('visit-saved-banner');banner.innerHTML=`✓ Visita guardada (ID: ${S.visitaId})`;banner.style.display='block';}else{await fetch(`/api/visita/${S.visitaId}/hallazgo`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(hallazgo)});}}catch(e){showMsg('Sin conexión — intenta de nuevo.',false);return;}hallazgo.id=Date.now();S.hallazgos.push(hallazgo);['inp-area','inp-factor','inp-prioridad','inp-estado'].forEach(id=>document.getElementById(id).value='');['inp-situacion','inp-rec','inp-responsable'].forEach(id=>document.getElementById(id).value='');['inp-fecha-ejecucion','inp-fecha-seguimiento'].forEach(id=>document.getElementById(id).value='');['antes','despues'].forEach(s=>{document.getElementById('img-'+s).style.display='none';document.getElementById('box-'+s).querySelector('.ico').style.display='block';document.getElementById('box-'+s).querySelector('span').style.display='block';});fBefore=null;fAfter=null;document.getElementById('cnt').textContent=S.hallazgos.length;showMsg(`✓ Hallazgo #${S.hallazgos.length} guardado`,true);setTimeout(()=>{document.getElementById('msg').className='msg'},3000);}
+function renderList(){const el=document.getElementById('list');if(!S.hallazgos.length){el.innerHTML='<div class="empty"><div class="eico">📋</div><p>Aún no hay hallazgos.</p></div>';return;}el.innerHTML=S.hallazgos.map((h,i)=>`<div class="card"><div class="num">Hallazgo #${i+1}${h.lugar?' · '+h.lugar:''}</div><div class="title">${h.situacion}</div>${h.recomendacion?`<div class="sub">↳ ${h.recomendacion}</div>`:''}${h.factor||h.prioridad?`<div class="sub" style="margin-top:3px">${[h.factor,h.prioridad,h.responsable].filter(Boolean).join(' · ')}</div>`:''}<span class="sbadge ${h.fotoAfter?'s-c':'s-p'}">${h.fotoAfter?'✓ Foto después lista':'Pendiente foto después'}</span><div class="foto-row"><div class="foto-mini"><img src="${h.fotoBefore}" alt="Antes"></div><div class="foto-mini">${h.fotoAfter?`<img src="${h.fotoAfter}" alt="Después">`:'<span>Pendiente</span>'}</div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px"><button class="btn btn-edit" onclick="editarHallazgo(${i})">✏️ Editar</button><button class="btn btn-outline" style="font-size:12px;padding:8px;color:#a32d2d;border-color:#a32d2d" onclick="eliminarHallazgoLocal(${i})">🗑 Eliminar</button></div></div>`).join('');}
 async function eliminarHallazgoLocal(index){if(!confirm('¿Eliminar este hallazgo?')) return;const h=S.hallazgos[index];if(h.id&&S.visitaId){try{await fetch('/api/hallazgo/'+h.id,{method:'DELETE'});}catch(e){}}S.hallazgos.splice(index,1);document.getElementById('cnt').textContent=S.hallazgos.length;renderList();}
 function updateStats(){const total=S.hallazgos.length;const cerr=S.hallazgos.filter(h=>h.fotoAfter).length;document.getElementById('st-total').textContent=total;document.getElementById('st-cerr').textContent=cerr;document.getElementById('btn-exp').disabled=total===0||!S.visitaId;}
 async function exportar(){if(!S.visitaId) return;const btn=document.getElementById('btn-exp');const loader=document.getElementById('loader');btn.disabled=true;loader.classList.add('show');try{const res=await fetch(`/api/exportar/${S.visitaId}`);const blob=await res.blob();const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`Informes_SST_visita_${S.visitaId}.zip`;a.click();URL.revokeObjectURL(url);}catch(e){alert('Error generando el informe.');}finally{btn.disabled=false;loader.classList.remove('show');}}
