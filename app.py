@@ -148,7 +148,7 @@ def detalle_visita(visita_id):
     if not v:
         cur.close(); conn.close()
         return jsonify({'error': 'No encontrada'}), 404
-    cur.execute(f'SELECT * FROM hallazgos WHERE visita_id={ph} ORDER BY id', (visita_id,))
+    cur.execute(f'SELECT id,lugar,situacion,recomendacion,estado,factor,prioridad,responsable,estado_acpm,fecha_ejecucion,fecha_seguimiento FROM hallazgos WHERE visita_id={ph} ORDER BY id', (visita_id,))
     hs = [dict(h) for h in cur.fetchall()]
     cur.close(); conn.close()
     return jsonify({'visita': dict(v), 'hallazgos': hs})
@@ -162,7 +162,6 @@ def eliminar_visita(visita_id):
     cur.execute(f'DELETE FROM visitas WHERE id={ph}', (visita_id,))
     conn.commit(); cur.close(); conn.close()
     return jsonify({'ok': True})
-
 
 @app.route('/api/hallazgo/<int:hallazgo_id>', methods=['PUT'])
 def editar_hallazgo(hallazgo_id):
@@ -204,13 +203,16 @@ def subir_despues(hallazgo_id):
     conn.commit(); cur.close(); conn.close()
     return jsonify({'ok': True})
 
-def b64_to_xl_image(b64_str, max_w=200, max_h=150):
+def b64_to_xl_image(b64_str, max_w=120, max_h=90):
+    """Convierte base64 a imagen para Excel — tamaño reducido para ahorrar memoria."""
     try:
-        data = base64.b64decode(b64_str.split(',')[1])
+        raw = b64_str.split(',')[1] if ',' in b64_str else b64_str
+        data = base64.b64decode(raw)
         img = PILImage.open(io.BytesIO(data)).convert('RGB')
         img.thumbnail((max_w, max_h), PILImage.LANCZOS)
         buf = io.BytesIO()
-        img.save(buf, format='PNG')
+        # JPEG consume mucha menos memoria que PNG
+        img.save(buf, format='JPEG', quality=60, optimize=True)
         buf.seek(0)
         return XLImage(buf)
     except:
@@ -244,6 +246,7 @@ def exportar_excel(visita_id):
         if border:
             cell.border = ALL_BORDERS
 
+    # ── FT-SST-020 ────────────────────────────────────────────────────────────
     wb1 = openpyxl.Workbook()
     ws1 = wb1.active
     ws1.title = 'Informe de inspeccion'
@@ -266,7 +269,7 @@ def exportar_excel(visita_id):
         apply(ws1[f'{col}5'], txt, bold=True, fill=gray, border=True)
     for merge in ['A1:B3','C1:E1','C2:E3','F1:G1','F2:G2','F3:G3','A4:B4','E4:H4','B5:D5']:
         ws1.merge_cells(merge)
-    ROW_H = 140
+    ROW_H = 100
     for i, h in enumerate(hs):
         r = 6 + i
         ws1.row_dimensions[r].height = ROW_H
@@ -299,6 +302,7 @@ def exportar_excel(visita_id):
           sz=11, h='center')
     ws1.merge_cells(f'A{obs_row+1}:H{obs_row+1}')
 
+    # ── MATRIZ ACPM ───────────────────────────────────────────────────────────
     wb2 = openpyxl.Workbook()
     ws2 = wb2.active
     ws2.title = 'BASE DE DATOS'
@@ -337,7 +341,7 @@ def exportar_excel(visita_id):
         mes = ''
     alt_fill = PatternFill('solid', fgColor='EBF3FB')
     for row_idx, h in enumerate(hs, 4):
-        ws2.row_dimensions[row_idx].height = 120
+        ws2.row_dimensions[row_idx].height = 90
         fill = alt_fill if row_idx % 2 == 0 else PatternFill()
         for col, val in [
             (1,v['cliente']),(2,mes),(3,v['fecha']),(4,'Inspeccion de Seguridad'),
@@ -355,12 +359,12 @@ def exportar_excel(visita_id):
         for col in [7, 17]:
             ws2.cell(row=row_idx, column=col).border = ALL_BORDERS
         if h.get('foto_antes'):
-            img = b64_to_xl_image(h['foto_antes'], max_w=160, max_h=110)
+            img = b64_to_xl_image(h['foto_antes'], max_w=100, max_h=75)
             if img:
                 img.anchor = openpyxl.utils.get_column_letter(7) + str(row_idx)
                 ws2.add_image(img)
         if h.get('foto_despues'):
-            img2 = b64_to_xl_image(h['foto_despues'], max_w=160, max_h=110)
+            img2 = b64_to_xl_image(h['foto_despues'], max_w=100, max_h=75)
             if img2:
                 img2.anchor = openpyxl.utils.get_column_letter(17) + str(row_idx)
                 ws2.add_image(img2)
@@ -370,7 +374,7 @@ def exportar_excel(visita_id):
     buf2 = io.BytesIO(); wb2.save(buf2); buf2.seek(0)
     zip_buf = io.BytesIO()
     fname_base = f"{v['cliente'].replace(' ','_')}_{v['fecha']}"
-    with zipfile.ZipFile(zip_buf, 'w') as zf:
+    with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(f'FT-SST-020_{fname_base}.xlsx', buf1.read())
         zf.writestr(f'Matriz_ACPM_{fname_base}.xlsx', buf2.read())
     zip_buf.seek(0)
